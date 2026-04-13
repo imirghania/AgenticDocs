@@ -10,7 +10,9 @@ wheels/
 .venv
 
 .mypy_cache/
-.claude/
+# .claude/
 .chainlit/
 
 .env
+
+output/

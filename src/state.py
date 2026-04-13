@@ -12,14 +12,17 @@ class DocSmithState(MessagesState):
     github_url: Optional[str]
     docs_url: Optional[str]
 
-    # Phase 2 — Ingestion (parallel, merged with operator.add)
-    context7_docs: Annotated[list[str], operator.add]
-    scraped_docs: Annotated[list[str], operator.add]
-    github_content: Annotated[list[str], operator.add]
+    # Phase 2 — Ingestion (disk-backed scratchpad, no in-memory content caps)
+    scratchpad_dir: Optional[str]                          # per-run scratch directory
+    scratchpad_files: Annotated[list[str], operator.add]   # paths written by agents
 
     # Phase 3 — Evaluation
     quality_score: Optional[float]
-    quality_report: Optional[dict]          # full Pydantic evaluation object
+    quality_report: Optional[dict]          # maps dimension name → DimensionScore
 
     # Phase 4 — Writing
+    chapters: Optional[list[dict]]                          # planned ChapterSpec dicts from planner
+    current_chapter: Optional[dict]                         # set per Send invocation; not used after fan-in
+    chapter_results: Annotated[list[dict], operator.add]    # accumulates one entry per chapter worker
     final_documentation: Optional[str]
+    output_file: Optional[str]             # path to output/{package}/ directory

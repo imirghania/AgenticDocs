@@ -1,32 +1,41 @@
+from pathlib import Path
+
+from deepagents import create_deep_agent, FilesystemPermission
 from langchain_tavily import TavilySearch
-from gitingest import ingest
+
+from src.core.llm import llm
 from src.state import DocSmithState
 
-_general_search = TavilySearch(max_results=3, topic="general")
+
+_ENRICHMENT_PROMPT = """You are a documentation researcher filling gaps identified by a quality review.
+For each gap provided:
+1. Use the search tool to find relevant examples, tutorials, and API references.
+2. Write your findings as separate .md files in the scratchpad directory.
+   Name each file clearly, e.g. gap_api_coverage.md, gap_code_examples.md.
+Be thorough — write everything you find, no truncation."""
 
 
-def enrichment_node(state: DocSmithState) -> dict:
+async def enrichment_node(state: DocSmithState) -> dict:
     report = state.get("quality_report", {})
-    gaps = []
-    for dim, score in report.items():
-        gaps.extend(score.gaps)
+    gaps = [g for dim in report.values() for g in dim.gaps]
+    if not gaps:
+        return {"scratchpad_files": []}
 
-    # Targeted follow-up searches based on identified gaps
-    extra_context: list[str] = []
-    for gap in gaps[:5]:
-        result = _general_search.invoke(
-            f"{state['package_name']} {gap} example tutorial"
-        )
-        extra_context.extend(r["content"] for r in result.get("results", []))
+    scratchpad_dir = state["scratchpad_dir"]
 
-    # Also dig into /examples and /tests directories in the GitHub repo
-    if state.get("github_url"):
-        _, _, examples_content = ingest(
-            state["github_url"],
-            include_patterns=["examples/**", "tests/**", "*.md"]
-        )
-        extra_context.append(examples_content[:20_000])
+    agent = create_deep_agent(
+        model=llm,
+        tools=[TavilySearch(max_results=5, topic="general")],
+        system_prompt=_ENRICHMENT_PROMPT,
+        permissions=[FilesystemPermission(operations=["read", "write"], paths=[str(Path(scratchpad_dir).absolute())])],
+    )
 
-    return {
-        "github_content": extra_context,   # appended via operator.add reducer
-    }
+    await agent.ainvoke({"messages": [("user",
+        f"Package: {state['package_name']} ({state['language']})\n"
+        f"Scratchpad directory: {scratchpad_dir}\n"
+        f"Gaps to fill:\n" + "\n".join(f"- {g}" for g in gaps[:8])
+    )]})
+
+    new_files = [str(p) for p in sorted(Path(scratchpad_dir).glob("gap_*.md"))]
+    
+    return {"scratchpad_files": new_files}

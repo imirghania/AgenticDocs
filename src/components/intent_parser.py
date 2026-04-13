@@ -1,3 +1,6 @@
+import uuid
+from pathlib import Path
+
 from pydantic import BaseModel
 
 from src.core.llm import llm
@@ -18,8 +21,13 @@ def intent_parser_node(state: DocSmithState) -> dict:
     result = extractor.invoke(
         f"Extract the package details from this request: {user_msg}"
     )
+
+    scratch_dir = Path("output") / "scratch" / uuid.uuid4().hex
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+
     return {
         "package_name": result.package_name,
         "language": result.language,
         "ecosystem": result.ecosystem,
+        "scratchpad_dir": str(scratch_dir),
     }

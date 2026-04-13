@@ -1,19 +1,24 @@
+from pathlib import Path
+
 from gitingest import ingest
+
 from src.state import DocSmithState
-from gitingest import ingest
 
 
 def github_agent_node(state: DocSmithState) -> dict:
     url = state.get("github_url")
     if not url:
-        return {"github_content": []}
+        return {"scratchpad_files": []}
 
-    summary, tree, content = ingest(url, max_file_size=50_000)
+    summary, tree, content = ingest(url)
 
-    # Enforce token budget: summary + tree always, code content trimmed
-    combined = f"# Repository Summary\n{summary}\n\n# Directory Tree\n{tree}"
-    budget_remaining = 60_000 - len(combined)
-    if budget_remaining > 0:
-        combined += f"\n\n# Source Files\n{content[:budget_remaining]}"
+    combined = (
+        f"# Repository Summary\n{summary}\n\n"
+        f"# Directory Tree\n{tree}\n\n"
+        f"# Source Files\n{content}"
+    )
 
-    return {"github_content": [combined]}
+    path = Path(state["scratchpad_dir"]) / "github.md"
+    path.write_text(combined, encoding="utf-8", errors="replace")
+
+    return {"scratchpad_files": [str(path)]}
