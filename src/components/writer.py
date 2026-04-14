@@ -2,6 +2,7 @@ import glob as glob_mod
 from pathlib import Path
 
 from deepagents import create_deep_agent, FilesystemPermission
+from deepagents.backends import FilesystemBackend
 from openai import RateLimitError
 from pydantic import BaseModel
 from tenacity import retry, retry_if_exception_type, wait_exponential
@@ -153,6 +154,7 @@ async def write_review_chapter_node(state: DocSmithState) -> dict:
                 str(Path("output").absolute()),
             ]),
         ],
+        backend=FilesystemBackend(),
     )
 
     notes = ""

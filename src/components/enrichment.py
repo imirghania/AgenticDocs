@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from deepagents import create_deep_agent, FilesystemPermission
+from deepagents.backends import FilesystemBackend
 from langchain_tavily import TavilySearch
 
 from src.core.llm import llm
@@ -28,6 +29,7 @@ async def enrichment_node(state: DocSmithState) -> dict:
         tools=[TavilySearch(max_results=5, topic="general")],
         system_prompt=_ENRICHMENT_PROMPT,
         permissions=[FilesystemPermission(operations=["read", "write"], paths=[str(Path(scratchpad_dir).absolute())])],
+        backend=FilesystemBackend(),
     )
 
     await agent.ainvoke({"messages": [("user",
