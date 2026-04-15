@@ -1,10 +1,11 @@
-from pathlib import Path
-
 from gitingest import ingest
 
+from src.graph.resumption import skippable
+from src.graph.scratchpad import write_scratchpad
 from src.state import DocSmithState
 
 
+@skippable("github_agent")
 def github_agent_node(state: DocSmithState) -> dict:
     url = state.get("github_url")
     if not url:
@@ -18,7 +19,5 @@ def github_agent_node(state: DocSmithState) -> dict:
         f"# Source Files\n{content}"
     )
 
-    path = Path(state["scratchpad_dir"]) / "github.md"
-    path.write_text(combined, encoding="utf-8", errors="replace")
-
-    return {"scratchpad_files": [str(path)]}
+    written_path = write_scratchpad(state["thread_id"], "github_agent", combined)
+    return {"scratchpad_files": [str(written_path)]}

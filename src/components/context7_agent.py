@@ -1,9 +1,9 @@
-from pathlib import Path
-
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
 
 from src.core.llm import llm
+from src.graph.resumption import skippable
+from src.graph.scratchpad import write_scratchpad
 from src.state import DocSmithState
 
 
@@ -29,6 +29,7 @@ async def build_context7_agent(llm):
     )
 
 
+@skippable("context7_agent")
 async def context7_node(state: DocSmithState) -> dict:
     try:
         agent = await build_context7_agent(llm)
@@ -39,7 +40,5 @@ async def context7_node(state: DocSmithState) -> dict:
     except Exception as e:
         content = f"# Context7 documentation fetch failed\n\nError: {e}\n"
 
-    path = Path(state["scratchpad_dir"]) / "context7.md"
-    path.write_text(content, encoding="utf-8")
-
-    return {"scratchpad_files": [str(path)]}
+    written_path = write_scratchpad(state["thread_id"], "context7_agent", content)
+    return {"scratchpad_files": [str(written_path)]}

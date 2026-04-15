@@ -1,9 +1,12 @@
+import json
 from typing import Optional
 
 from pydantic import BaseModel, model_validator
 from langgraph.types import interrupt
 
 from src.core.llm import llm
+from src.graph.resumption import skippable
+from src.graph.scratchpad import write_scratchpad
 from src.state import DocSmithState
 
 
@@ -84,6 +87,7 @@ def _extract_docs_url(result: dict) -> Optional[str]:
     return url if any(h in url for h in doc_hints) else None
 
 
+@skippable("confirm_package")
 def confirm_package_node(state: DocSmithState) -> dict:
     results = state["search_results"][:5]
     formatted = _format_results(results)
@@ -107,7 +111,6 @@ def confirm_package_node(state: DocSmithState) -> dict:
         if parsed.action == "select":
             idx = parsed.selected_index
             if not (0 <= idx < len(results)):
-                # LLM returned an out-of-range index — ask the user to clarify
                 user_response = interrupt({
                     "type": "package_clarification",
                     "message": (
@@ -117,26 +120,25 @@ def confirm_package_node(state: DocSmithState) -> dict:
                 })
                 continue
             confirmed = results[idx]
-            return {
+            payload = {
                 "confirmed_package": confirmed,
                 "github_url": _extract_github_url(confirmed),
                 "docs_url": _extract_docs_url(confirmed),
             }
+            write_scratchpad(state["thread_id"], "confirm_package", json.dumps(payload, indent=2))
+            return payload
 
         elif parsed.action == "none":
-            # User wants a completely different package — update package_name so
-            # downstream nodes (context7, writer) query the right name.
-            # confirmed_package=None causes scraper/github nodes to return empty
-            # lists, but they already guard against missing URLs gracefully.
-            return {
+            payload = {
                 "confirmed_package": None,
                 "package_name": parsed.new_package_name,
                 "github_url": None,
                 "docs_url": None,
             }
+            write_scratchpad(state["thread_id"], "confirm_package", json.dumps(payload, indent=2))
+            return payload
 
         elif parsed.action == "clarify":
-            # Ask the LLM's follow-up question and loop back
             user_response = interrupt({
                 "type": "package_clarification",
                 "message": parsed.clarification_question,

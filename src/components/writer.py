@@ -1,32 +1,43 @@
+"""
+Writer nodes for DocSmith.
+
+chapter_planner_node has been moved to src/agents/chapter_planner.py.
+This module retains the shared models, helpers, and prompts that the
+chapter_planner agent imports, plus the two remaining nodes:
+  - write_review_chapter_node  (fan-out worker, not individually skippable)
+  - chapter_assembler_node     (@skippable("writer_agent"))
+"""
 import glob as glob_mod
 from pathlib import Path
 
-from deepagents import create_deep_agent, FilesystemPermission
-from deepagents.backends import FilesystemBackend
 from openai import RateLimitError
 from pydantic import BaseModel
 from tenacity import retry, retry_if_exception_type, wait_exponential
 
 from src.core.llm import llm
+from src.graph.resumption import skippable
+from src.graph.scratchpad import write_scratchpad
 from src.state import DocSmithState
 
 
-# ── Pydantic models ───────────────────────────────────────────────────────────
+# ── Pydantic models (also imported by src/agents/chapter_planner.py) ──────────
 
 class ChapterSpec(BaseModel):
     slug: str          # e.g. "01-overview" — becomes filename stem
     title: str
     description: str   # full writing brief for this chapter
 
+
 class ChapterPlan(BaseModel):
     chapters: list[ChapterSpec]
+
 
 class ChapterReview(BaseModel):
     accepted: bool
     notes: str         # empty string when accepted; actionable feedback when rejected
 
 
-# ── Shared helpers ────────────────────────────────────────────────────────────
+# ── Shared helpers (also imported by src/agents/) ────────────────────────────
 
 def _output_dir(state: DocSmithState) -> Path:
     slug = state["package_name"].lower().replace(" ", "_").replace("/", "_")
@@ -45,7 +56,7 @@ def _read_scratchpad_summary(scratchpad_dir: str, max_chars: int = 12_000) -> st
     return combined[:max_chars]
 
 
-# ── Prompts ───────────────────────────────────────────────────────────────────
+# ── Prompts (also imported by src/agents/chapter_planner.py) ─────────────────
 
 _PLANNER_SYSTEM_PROMPT = """You are a documentation architect. You receive a summary of raw
 source material (README, API references, examples, GitHub source) for a software package.
@@ -61,16 +72,18 @@ Rules for chapters:
 - Never invent chapters about content that does not appear in the source material."""
 
 _WRITER_SYSTEM_PROMPT = """You are a world-class technical documentation writer.
-Use the read_file, glob, and grep filesystem tools to read ALL source files in the scratchpad directory.
-Then write the single chapter file at the exact path provided.
+You will receive summarised source material (README, API docs, GitHub code, examples) for a
+software package, along with a specific chapter title and detailed writing brief.
+Write the chapter content as a complete, well-structured Markdown document.
 
 QUALITY RULES:
 - Every code example must be complete and runnable on its own.
 - Never say "see the docs" — explain it inline.
 - Use progressive disclosure: simple version first, advanced options later.
 - Include type annotations in all code examples.
-- The chapter file must stand alone — assume the reader may jump directly to it.
-- Follow the writing instructions in the chapter description exactly."""
+- The chapter must stand alone — assume the reader may jump directly to it.
+- Follow the writing brief exactly; cover every point it mentions.
+- Output ONLY the Markdown content — no preamble, no explanation, no code fences wrapping the whole doc."""
 
 _REVIEWER_PROMPT = """You are a senior technical documentation reviewer.
 Read the chapter draft carefully and evaluate it against these criteria:
@@ -103,8 +116,10 @@ _retry = retry(
 
 
 @_retry
-async def _invoke_agent(agent, messages: dict) -> dict:
-    return await agent.ainvoke(messages)
+async def _invoke_writer(messages: list) -> str:
+    """Call the LLM directly to generate chapter content. Returns the raw text."""
+    response = await llm.ainvoke(messages)
+    return response.content if hasattr(response, "content") else str(response)
 
 
 @_retry
@@ -112,73 +127,44 @@ async def _invoke_reviewer(messages: list) -> ChapterReview:
     return await _reviewer.ainvoke(messages)
 
 
-# ── Node 1: chapter_planner_node ──────────────────────────────────────────────
-
-async def chapter_planner_node(state: DocSmithState) -> dict:
-    summary = _read_scratchpad_summary(state["scratchpad_dir"])
-
-    plan: ChapterPlan = await _planner.ainvoke([
-        ("system", _PLANNER_SYSTEM_PROMPT),
-        ("user",
-            f"Package: {state['package_name']} ({state['language']}, {state['ecosystem']})\n\n"
-            f"Quality report (gaps to address):\n{state.get('quality_report', {})}\n\n"
-            f"Source material summary:\n{summary}"
-        ),
-    ])
-
-    chapters_as_dicts = [c.model_dump() for c in plan.chapters]
-
-    return {
-        "chapters": chapters_as_dicts,
-        "chapter_results": [],   # pre-initialize the accumulator
-        "messages": [("assistant",
-            f"Chapter plan ({len(plan.chapters)} chapters): "
-            + ", ".join(c.title for c in plan.chapters)
-        )],
-    }
-
-
-# ── Node 2: write_review_chapter_node ────────────────────────────────────────
+# ── Node: write_review_chapter_node ──────────────────────────────────────────
+# Not individually skippable (fan-out). Only chapter_assembler is skippable.
 
 async def write_review_chapter_node(state: DocSmithState) -> dict:
-    chapter = ChapterSpec(**state["current_chapter"])
-    scratchpad_dir = state["scratchpad_dir"]
+    chapter      = ChapterSpec(**state["current_chapter"])
     chapter_path = _output_dir(state) / f"{chapter.slug}.md"
 
-    agent = create_deep_agent(
-        model=llm,
-        system_prompt=_WRITER_SYSTEM_PROMPT,
-        permissions=[
-            FilesystemPermission(operations=["read", "write"], paths=[
-                str(Path(scratchpad_dir).absolute()),
-                str(Path("output").absolute()),
-            ]),
-        ],
-        backend=FilesystemBackend(),
-    )
+    # Summarised source material — capped so every chapter gets the same context
+    # regardless of how large individual scratchpad files are (e.g. github dump).
+    source_summary = _read_scratchpad_summary(state["scratchpad_dir"])
 
-    notes = ""
+    notes    = ""
     accepted = False
     iteration = 0
 
     for iteration in range(1, MAX_REVIEW_ITERATIONS + 1):
-        retry_section = (
+        feedback_section = (
             f"\n\nREVIEWER FEEDBACK (iteration {iteration - 1}) — address ALL points:\n{notes}"
             if notes else ""
         )
 
-        await _invoke_agent(agent, {"messages": [("user",
-            f"Write documentation for: {state['package_name']} ({state['language']})\n"
-            f"Read ALL source files from: {scratchpad_dir}\n"
-            f"Chapter to write:\n"
-            f"  Title: {chapter.title}\n"
-            f"  Writing brief: {chapter.description}\n"
-            f"  Output file: {chapter_path.absolute()}\n"
-            f"{retry_section}"
-        )]})
+        content = await _invoke_writer([
+            ("system", _WRITER_SYSTEM_PROMPT),
+            ("user",
+             f"Package: {state['package_name']} ({state['language']}, {state['ecosystem']})\n\n"
+             f"Chapter title: {chapter.title}\n"
+             f"Writing brief: {chapter.description}\n\n"
+             f"Source material (summarised):\n{source_summary}"
+             f"{feedback_section}"
+             ),
+        ])
+
+        content = content.strip()
+        if content:
+            chapter_path.write_text(content, encoding="utf-8")
 
         if not chapter_path.exists() or not chapter_path.read_text(encoding="utf-8", errors="replace").strip():
-            notes = f"The file at {chapter_path} is missing or empty. Write the full chapter content."
+            notes = "Chapter content was empty. Write a complete, well-structured chapter."
             continue
 
         draft = chapter_path.read_text(encoding="utf-8", errors="replace")
@@ -191,17 +177,17 @@ async def write_review_chapter_node(state: DocSmithState) -> dict:
         ])
 
         accepted = review.accepted
-        notes = review.notes
+        notes    = review.notes
 
         if accepted:
             break
 
     return {
         "chapter_results": [{
-            "slug": chapter.slug,
-            "title": chapter.title,
-            "path": str(chapter_path),
-            "accepted": accepted,
+            "slug":      chapter.slug,
+            "title":     chapter.title,
+            "path":      str(chapter_path),
+            "accepted":  accepted,
             "iterations": iteration,
         }],
         "messages": [("assistant",
@@ -211,8 +197,9 @@ async def write_review_chapter_node(state: DocSmithState) -> dict:
     }
 
 
-# ── Node 3: chapter_assembler_node ────────────────────────────────────────────
+# ── Node: chapter_assembler_node ─────────────────────────────────────────────
 
+@skippable("writer_agent")
 async def chapter_assembler_node(state: DocSmithState) -> dict:
     output_dir = _output_dir(state)
 
@@ -224,6 +211,8 @@ async def chapter_assembler_node(state: DocSmithState) -> dict:
     results = state.get("chapter_results", [])
     accepted_count = sum(1 for r in results if r.get("accepted"))
     total = len(results)
+
+    write_scratchpad(state["thread_id"], "writer_agent", final_doc)
 
     return {
         "final_documentation": final_doc,
