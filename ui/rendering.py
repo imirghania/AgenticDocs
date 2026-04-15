@@ -19,7 +19,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.graph.scratchpad import read_scratchpad, SCRATCHPAD_FILES
-from src.graph.store import store, get_session_meta, list_user_sessions
+from src.graph.store import store, get_session_meta, list_user_sessions, delete_session
 from ui.constants import NODE_LABELS, STATUS_COLORS, NONE_OF_THE_ABOVE
 from ui.event_processor import process_events
 from ui.graph_runner import start_graph_thread
@@ -349,12 +349,18 @@ def _render_session_card(s: dict) -> None:
     tid     = s.get("thread_id", "")
     updated = relative_time(s.get("updated_at", ""))
 
+    # Guard: block delete while the background thread is running for this session.
+    is_active_processing = (
+        tid == st.session_state.get("active_thread_id")
+        and "progress_q" in st.session_state
+    )
+
     with st.container():
         st.markdown(f"**{pkg}** {icon}")
         st.caption(updated)
-        col1, col2 = st.columns(2)
+        _, action_col, delete_col = st.columns([6, 3, 1])
 
-        with col1:
+        with action_col:
             if status in ("paused", "in_progress", "running"):
                 if st.button("Resume", key=f"resume_{tid}"):
                     _clear_queue_state()
@@ -364,15 +370,71 @@ def _render_session_card(s: dict) -> None:
                     st.session_state.active_thread_id = tid
                     start_graph_thread(tid, st.session_state.user_id, pkg)
                     st.rerun()
-
-        with col2:
-            if status == "completed":
+            elif status == "completed":
                 if st.button("View", key=f"view_{tid}"):
                     st.session_state.pipeline_steps = []
                     st.session_state.view_thread_id = tid
                     st.rerun()
 
+        with delete_col:
+            if is_active_processing:
+                st.markdown(
+                    '<div style="text-align:center;color:#aaa;" '
+                    'title="Cannot delete while processing">❌</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                if st.button("❌", key=f"delete_{tid}", help="Delete this session"):
+                    st.session_state["pending_delete_thread_id"] = tid
+                    st.rerun()
+
         st.markdown("---")
+
+
+def render_delete_confirmation() -> None:
+    """
+    If st.session_state["pending_delete_thread_id"] is set, render a confirmation
+    dialog in the main area.  Uses @st.dialog (Streamlit ≥ 1.36) when available,
+    otherwise falls back to a bordered container.
+    """
+    tid = st.session_state.get("pending_delete_thread_id")
+    if not tid:
+        return
+
+    meta = get_session_meta(store, tid) or {}
+    pkg  = meta.get("package_name", tid[:8])
+
+    if hasattr(st, "dialog"):
+        @st.dialog("Delete session?")
+        def _delete_dialog() -> None:
+            _render_delete_body(pkg, tid)
+        _delete_dialog()
+    else:
+        with st.container(border=True):
+            st.markdown("### Delete session?")
+            _render_delete_body(pkg, tid)
+
+
+def _render_delete_body(pkg: str, tid: str) -> None:
+    st.markdown(
+        f"This will permanently delete all scratchpad files and store entries "
+        f"for **{pkg}**. This cannot be undone."
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Confirm delete", type="primary", key="confirm_delete"):
+            delete_session(store, tid)
+            st.session_state.pop("pending_delete_thread_id", None)
+            if st.session_state.get("active_thread_id") == tid:
+                _clear_active_session()
+            if st.session_state.get("view_thread_id") == tid:
+                st.session_state.pop("view_thread_id", None)
+                st.session_state.pipeline_steps = []
+            st.rerun()
+    with col2:
+        if st.button("Cancel", key="cancel_delete"):
+            st.session_state.pop("pending_delete_thread_id", None)
+            st.rerun()
 
 
 def _clear_active_session() -> None:

@@ -12,7 +12,9 @@ Namespaces (logical, mapped to file paths for FilesystemStore):
   ("users", user_id, "preferences")          → user preference dict
 """
 import json
+import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -76,6 +78,18 @@ class FilesystemStore:
                 pass
         return items
 
+    def delete(self, namespace: tuple[str, ...], key: str) -> None:
+        """Delete a single key. No-op if the file doesn't exist."""
+        p = self._path(namespace, key)
+        if p.exists():
+            p.unlink()
+
+    def delete_prefix(self, namespace: tuple[str, ...]) -> None:
+        """Delete all keys under a namespace subtree (shutil.rmtree the dir)."""
+        base = self._root.joinpath(*namespace)
+        if base.exists():
+            shutil.rmtree(base)
+
 
 # ── Store factory ──────────────────────────────────────────────────────────────
 
@@ -135,6 +149,41 @@ def list_user_sessions(the_store: Any, user_id: str) -> list[dict]:
             result.append(val)
 
     return sorted(result, key=lambda x: x.get("created_at", ""), reverse=True)
+
+
+def delete_session(the_store: Any, thread_id: str) -> None:
+    """
+    Permanently delete all data for a session:
+      1. Scratchpad files under sessions/{thread_id}/
+      2. Store namespaces: meta + scratchpad_index (via delete_prefix)
+    Does NOT delete user preferences or output/ chapter files.
+    """
+    meta = get_session_meta(the_store, thread_id) or {}
+    package_name = meta.get("package_name", "unknown")
+
+    # 1. Scratchpad directory
+    scratchpad_path = Path("sessions") / thread_id
+    if scratchpad_path.exists():
+        shutil.rmtree(scratchpad_path)
+    else:
+        logging.warning("delete_session: scratchpad dir not found: %s", scratchpad_path)
+
+    # 2. Store entries
+    if hasattr(the_store, "delete_prefix"):
+        the_store.delete_prefix(("sessions", thread_id))
+    else:
+        if hasattr(the_store, "delete"):
+            the_store.delete(("sessions", thread_id, "meta"), "data")
+            from src.graph.scratchpad import SCRATCHPAD_FILES  # noqa: PLC0415
+            for node_name in SCRATCHPAD_FILES:
+                try:
+                    the_store.delete(
+                        ("sessions", thread_id, "scratchpad_index"), node_name
+                    )
+                except Exception:
+                    pass
+
+    logging.info("Deleted session %s (%s)", thread_id, package_name)
 
 
 # ── Scratchpad index helpers ───────────────────────────────────────────────────

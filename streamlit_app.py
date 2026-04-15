@@ -20,6 +20,7 @@ from ui.constants import PIPELINE_CSS
 from ui.rendering import (
     render_active_session,
     render_completed_session,
+    render_delete_confirmation,
     render_new_session_form,
     render_sidebar,
 )
@@ -45,6 +46,7 @@ def main() -> None:
         st.session_state.pipeline_error = None
 
     render_sidebar()
+    render_delete_confirmation()
 
     # ── Route to the appropriate main-area view ───────────────────────────────
     if "view_thread_id" in st.session_state:

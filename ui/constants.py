@@ -62,6 +62,25 @@ details[data-testid] {
 .stCode pre, .stCode code {
     font-size: 13px !important;
 }
+
+/* Sidebar session card delete column: centre content and keep button compact */
+section[data-testid="stSidebar"]
+    [data-testid="stHorizontalBlock"]
+    [data-testid="stColumn"]:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+section[data-testid="stSidebar"]
+    [data-testid="stHorizontalBlock"]
+    [data-testid="stColumn"]:last-child
+    button {
+    width: auto !important;
+    min-width: unset !important;
+    padding: 0.2rem 0.35rem !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+}
 </style>"""
 
 # Sentinel used in the HITL package-confirmation radio list.
