@@ -3,11 +3,13 @@ Shared constants: node labels, pipeline ordering, status colours, CSS.
 """
 
 NODE_LABELS: dict[str, str] = {
-    "resumption_inspector": "Check session state",
-    "intent_parser":        "Parse request",
-    "web_discovery":        "Search GitHub repositories",
-    "confirm_package":      "Confirm package",
-    "docs_discovery":       "Find documentation URL",
+    "resumption_inspector":  "Check session state",
+    "intent_parser":         "Parse request",
+    "web_discovery":         "Search GitHub repositories",
+    "confirm_package":       "Confirm package",
+    "local_cache_inspector": "Check local cache",
+    "end_view":              "Load existing documentation",
+    "docs_discovery":        "Find documentation URL",
     "context7_agent":       "Fetch Context7 docs",
     "docs_scraper":         "Scrape official docs",
     "github_agent":         "Ingest GitHub source",
@@ -26,6 +28,8 @@ NODE_ORDER: list[str] = [
     "intent_parser",
     "web_discovery",
     "confirm_package",
+    "local_cache_inspector",
+    "end_view",
     "docs_discovery",
     "context7_agent",
     "docs_scraper",

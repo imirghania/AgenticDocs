@@ -41,3 +41,11 @@ class DocSmithState(MessagesState):
     completed_nodes: Annotated[set[str], _union_sets]   # set-union reducer
     is_resuming: bool
     resumption_summary: str
+
+    # Cache / update detection (local_cache_inspector)
+    cache_decision: Optional[str]             # "view"|"regenerate"|"use_partial"|"full_refresh"|"partial_refresh"
+    cache_source_thread_id: Optional[str]     # thread_id of the session being reused/updated
+    refresh_strategy: Optional[str]           # "full_refresh"|"partial_refresh"
+    is_update: Optional[bool]                 # True when updating existing docs
+    previous_doc_summary: Optional[str]       # first 2000 chars of source session's final output
+    update_assessment: Optional[dict]         # parsed LLM assessment JSON from update check

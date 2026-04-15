@@ -159,8 +159,236 @@ def render_hitl(payload: dict) -> None:
             st.session_state.hitl_pending = None
             st.rerun()
 
+    elif ptype == "existing_doc_found":
+        _render_hitl_existing_doc(payload.get("data", {}), hitl_q)
+
+    elif ptype == "partial_cache_found":
+        _render_hitl_partial_cache(payload.get("data", {}), hitl_q)
+
+    elif ptype == "update_assessment":
+        _render_hitl_update_assessment(payload.get("data", {}), hitl_q)
+
+
+def _render_hitl_existing_doc(data: dict, hitl_q: queue.Queue) -> None:
+    """State A: completed documentation found. Offer View / Update / Regenerate."""
+    pkg_name    = data.get("package_name", "this package")
+    best        = data.get("best_match", {})
+    others      = data.get("other_matches", [])
+    source_tid  = best.get("thread_id", "")
+
+    with st.container(border=True):
+        st.markdown(f"### Documentation already exists for **{pkg_name}**")
+
+        updated_at    = best.get("updated_at", "")
+        quality_score = best.get("quality_score")
+        chapter_count = best.get("chapter_count")
+        word_count    = best.get("word_count")
+
+        meta_parts = []
+        if updated_at:
+            meta_parts.append(f"Last generated: {relative_time(updated_at)}")
+        if quality_score is not None:
+            meta_parts.append(f"quality {quality_score:.1f}/5")
+        if chapter_count:
+            meta_parts.append(f"{chapter_count} chapters")
+        if word_count:
+            meta_parts.append(f"{word_count:,} words")
+        if meta_parts:
+            st.caption(" · ".join(meta_parts))
+
+        options = [
+            "View existing documentation",
+            "Update documentation — check for new releases and changes",
+            "Regenerate from scratch — ignore existing resources",
+        ]
+        choice = st.radio("What would you like to do?", options, key="hitl_cache_radio")
+
+        if others:
+            with st.expander(f"Other saved versions ({len(others)} more)"):
+                for s in others:
+                    cols = st.columns([2, 1, 1])
+                    cols[0].caption(f"`{s.get('thread_id', '')[:8]}…`")
+                    cols[1].caption(relative_time(s.get("updated_at", "")))
+                    if s.get("quality_score") is not None:
+                        cols[2].caption(f"Q {s['quality_score']:.1f}/5")
+
+        if st.button("Continue", key="hitl_cache_confirm", type="primary"):
+            if choice == options[0]:
+                hitl_q.put({"decision": "view",       "source_thread_id": source_tid})
+            elif choice == options[1]:
+                hitl_q.put({"decision": "update",     "source_thread_id": source_tid})
+            else:
+                hitl_q.put({"decision": "regenerate", "source_thread_id": None})
+            st.session_state.hitl_pending = None
+            st.rerun()
+
+
+def _render_hitl_partial_cache(data: dict, hitl_q: queue.Queue) -> None:
+    """State B: partial resources found. Offer Resume / Regenerate."""
+    pkg_name    = data.get("package_name", "this package")
+    best        = data.get("best_partial", {})
+    source_tid  = best.get("thread_id", "")
+    last_node   = best.get("last_completed_node") or "unknown"
+    updated_at  = best.get("updated_at", "")
+
+    st.info(
+        f"Partial resources found for **{pkg_name}** "
+        f"(last completed node: `{last_node}`, updated {relative_time(updated_at)})."
+    )
+    options = [
+        "Resume from existing partial resources",
+        "Start fresh — discard partial resources",
+    ]
+    choice = st.radio("How would you like to continue?", options, key="hitl_partial_radio")
+
+    if st.button("Continue", key="hitl_partial_confirm", type="primary"):
+        if choice == options[0]:
+            hitl_q.put({"decision": "use_partial",  "source_thread_id": source_tid})
+        else:
+            hitl_q.put({"decision": "regenerate",   "source_thread_id": None})
+        st.session_state.hitl_pending = None
+        st.rerun()
+
+
+def _render_hitl_update_assessment(data: dict, hitl_q: queue.Queue) -> None:
+    """State A → update: show change report and ask for refresh strategy."""
+    pkg_name      = data.get("package_name", "this package")
+    baseline_date = data.get("baseline_date", "")
+    available     = data.get("update_check_available", True)
+    assessment    = data.get("assessment", {})
+    source_tid    = data.get("source_thread_id", "")
+
+    st.markdown(
+        f"### Changes detected for **{pkg_name}** "
+        f"since {relative_time(baseline_date)}"
+    )
+
+    if not available:
+        st.warning(f"Could not retrieve change data from GitHub. {assessment.get('summary', '')}")
+    else:
+        significance = assessment.get("significance_level", "none")
+        _SIGNIFICANCE_COLORS = {
+            "major": "#E24B4A",
+            "minor": "#F0A500",
+            "patch": "#2196F3",
+            "none":  "#888888",
+        }
+        _SIGNIFICANCE_LABELS = {
+            "major": "MAJOR UPDATE",
+            "minor": "MINOR UPDATE",
+            "patch": "PATCH",
+            "none":  "NO CHANGES",
+        }
+        color = _SIGNIFICANCE_COLORS.get(significance, "#888888")
+        label = _SIGNIFICANCE_LABELS.get(significance, significance.upper())
+        st.markdown(
+            f'<span style="background:{color};color:white;padding:3px 8px;'
+            f'border-radius:4px;font-size:0.8em;font-weight:bold">{label}</span>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("")
+
+        if summary := assessment.get("summary"):
+            st.markdown(summary)
+
+        if releases := assessment.get("new_releases", []):
+            st.subheader("New releases")
+            for rel in releases:
+                st.markdown(f"**{rel.get('tag', '')}** — {rel.get('title', '')}")
+                if hl := rel.get("highlights", ""):
+                    st.caption(hl[:300])
+
+        if breaking := assessment.get("breaking_changes", []):
+            st.subheader("Breaking changes")
+            for bc in breaking:
+                st.markdown(f"⚠️ {bc}")
+
+        if features := assessment.get("new_features", []):
+            st.subheader("New features")
+            for feat in features:
+                st.markdown(f"• {feat}")
+
+        recommendation = assessment.get("recommendation", "partial_refresh")
+        if recommendation == "full_refresh":
+            st.warning("Recommended: full refresh — major changes detected, existing documentation may be outdated.")
+        elif recommendation == "partial_refresh":
+            st.info("Recommended: partial refresh — reuse chapter structure, refresh content.")
+        else:
+            st.success("No significant changes. Your documentation is likely still accurate.")
+
+    # Map recommendation to default radio index
+    rec = assessment.get("recommendation", "partial_refresh")
+    default_idx = 0 if rec == "full_refresh" else (2 if rec == "no_update" else 1)
+
+    options = [
+        "Proceed with full refresh — re-fetch all resources",
+        "Proceed with partial refresh — reuse chapter structure where possible",
+        "Cancel — keep existing documentation as-is",
+    ]
+    choice = st.radio(
+        "How would you like to proceed?",
+        options,
+        index=default_idx,
+        key="hitl_update_radio",
+    )
+
+    if st.button("Continue", key="hitl_update_confirm", type="primary"):
+        if choice == options[0]:
+            hitl_q.put({"decision": "proceed_update", "refresh_strategy": "full_refresh"})
+        elif choice == options[1]:
+            hitl_q.put({"decision": "proceed_update", "refresh_strategy": "partial_refresh"})
+        else:
+            hitl_q.put({"decision": "cancel_update", "refresh_strategy": None})
+        st.session_state.hitl_pending = None
+        st.rerun()
+
 
 # ── 4. Final output ───────────────────────────────────────────────────────────
+
+def render_view_existing_doc(thread_id: str) -> None:
+    """
+    Display a previously-generated documentation from another session.
+    Called when cache_decision == "view" (user chose not to regenerate).
+    """
+    from src.graph.scratchpad import read_scratchpad as _rsp
+    from src.graph.store import get_session_meta as _gsm
+
+    meta      = _gsm(store, thread_id) or {}
+    pkg       = meta.get("package_name", thread_id[:8])
+    final_doc = _rsp(thread_id, "writer_agent")
+
+    st.markdown(f"## Documentation: **{pkg}**")
+
+    caption_parts: list[str] = []
+    if updated_at := meta.get("updated_at"):
+        caption_parts.append(f"Generated {relative_time(updated_at)}")
+    if qs := meta.get("quality_score"):
+        caption_parts.append(f"Quality {qs:.1f}/5")
+    if cc := meta.get("chapter_count"):
+        caption_parts.append(f"{cc} chapters")
+    if wc := meta.get("word_count"):
+        caption_parts.append(f"{wc:,} words")
+    if caption_parts:
+        st.caption(" · ".join(caption_parts))
+
+    if final_doc:
+        with st.expander("View documentation", expanded=True):
+            st.markdown(final_doc)
+        st.download_button(
+            label="Download documentation (.md)",
+            data=final_doc,
+            file_name=f"docs_{pkg}.md",
+            mime="text/markdown",
+        )
+    else:
+        st.info(f"Documentation not found in scratchpad for session `{thread_id[:8]}`.")
+
+    if st.button("Update this documentation", key="update_existing_doc"):
+        st.session_state.force_update_thread_id = thread_id
+        # Clear current active session so a new request can be started
+        _clear_active_session()
+        st.rerun()
+
 
 def render_final_output(output_path: str, thread_id: str) -> None:
     """Display the assembled documentation and offer a download button."""
@@ -268,7 +496,11 @@ def render_active_session() -> None:
     elif st.session_state.get("pipeline_done"):
         # Pipeline finished — static render so steps don't auto-collapse.
         render_pipeline_steps()
-        render_final_output(st.session_state.get("final_output_path", ""), thread_id)
+        view_tid = st.session_state.get("view_doc_thread_id")
+        if view_tid:
+            render_view_existing_doc(view_tid)
+        else:
+            render_final_output(st.session_state.get("final_output_path", ""), thread_id)
     elif st.session_state.get("pipeline_error"):
         render_pipeline_steps()
         st.error(f"Pipeline error: {st.session_state.pipeline_error}")

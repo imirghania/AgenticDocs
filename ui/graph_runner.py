@@ -183,10 +183,16 @@ async def _handle_interrupt(
     progress_q.put({"event": "hitl_required", **payload})
     put_session_meta(store, thread_id, {"status": "paused"})
 
-    user_resp: str = await asyncio.get_event_loop().run_in_executor(
+    user_resp: Any = await asyncio.get_event_loop().run_in_executor(
         None, lambda: hitl_q.get(timeout=300)
     )
     put_session_meta(store, thread_id, {"status": "running"})
+    # Structured dict responses (new HITL types like existing_doc_found,
+    # partial_cache_found, update_assessment) pass through directly.
+    # Plain strings (package_confirmation / package_clarification) are
+    # wrapped as {"text": ...} to match confirm_package_node's expectation.
+    if isinstance(user_resp, dict):
+        return Command(resume=user_resp), True
     return Command(resume={"text": user_resp}), True
 
 
@@ -234,4 +240,11 @@ def _emit_side_channel_events(
             "event":       "pipeline_done",
             "output_path": nd["output_file"],
             "thread_id":   thread_id,
+        })
+
+    # Cache inspector: "view" decision — signal the UI to show the existing doc
+    if node_name == "local_cache_inspector" and nd.get("cache_decision") == "view":
+        progress_q.put({
+            "event":     "view_existing_doc",
+            "thread_id": nd.get("cache_source_thread_id", ""),
         })

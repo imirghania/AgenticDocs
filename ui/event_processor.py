@@ -56,6 +56,13 @@ def process_events(events: list[dict]) -> bool:
         elif etype == "hitl_required":
             st.session_state.hitl_pending = ev
 
+        elif etype == "view_existing_doc":
+            # Cache inspector chose "view" — show the pre-existing documentation
+            st.session_state.view_doc_thread_id = ev.get("thread_id", "")
+            st.session_state.pipeline_done      = True
+            st.session_state.pop("progress_q", None)
+            needs_rerun = True
+
         elif etype == "pipeline_done":
             st.session_state.pipeline_done     = True
             st.session_state.final_output_path = ev.get("output_path", "")

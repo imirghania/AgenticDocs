@@ -5,11 +5,12 @@ Every node that produces durable output writes a numbered file under
 sessions/{thread_id}/ before returning. Presence of a non-empty file
 is an unambiguous signal that its node completed successfully.
 """
-import json
 import logging
+import shutil
 from pathlib import Path
 
 SCRATCHPAD_FILES: dict[str, str] = {
+    "local_cache_inspector": "00_cache_decision.json",
     "web_discovery":    "01_search_results.json",
     "confirm_package":  "02_confirmed_pkg.json",
     "context7_agent":   "03_context7_docs.md",
@@ -98,3 +99,35 @@ def read_scratchpad_summary(scratchpad_dir: str, max_chars: int = 12_000) -> str
             pass
     combined = "\n\n---\n\n".join(parts)
     return combined[:max_chars]
+
+
+def copy_scratchpad_from(
+    source_thread_id: str,
+    dest_thread_id: str,
+    node_name: str,
+) -> bool:
+    """
+    Copy the scratchpad file for node_name from source to dest session dir.
+
+    Never overwrites a non-empty destination file (idempotent).
+    Returns True if the file was copied or already existed in dest.
+    Returns False if the source file is missing or empty.
+    Uses shutil.copy2 to preserve mtime.
+    """
+    filename = SCRATCHPAD_FILES.get(node_name)
+    if not filename:
+        return False
+    src = Path("sessions") / source_thread_id / filename
+    try:
+        if not src.exists() or not src.read_text(encoding="utf-8").strip():
+            return False
+    except OSError:
+        return False
+    dst = _session_dir(dest_thread_id) / filename
+    try:
+        if dst.exists() and dst.read_text(encoding="utf-8").strip():
+            return True  # already present — idempotent
+    except OSError:
+        pass
+    shutil.copy2(src, dst)
+    return True

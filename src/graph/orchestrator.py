@@ -6,6 +6,7 @@ from src.components.resumption_inspector import resumption_inspector_node
 from src.components.intent_parser import intent_parser_node
 from src.components.web_discovery import web_discovery_node
 from src.components.confirm_package import confirm_package_node
+from src.components.local_cache_inspector import local_cache_inspector_node
 from src.components.docs_discovery import docs_discovery_node
 from src.components.context7_agent import context7_node
 from src.components.docs_scraper import docs_scraper_node
@@ -42,11 +43,13 @@ def build_graph():
 
     # ── Node registrations ────────────────────────────────────────────────────
 
-    builder.add_node("resumption_inspector", resumption_inspector_node)  # always first
-    builder.add_node("intent_parser",        intent_parser_node)
-    builder.add_node("web_discovery",        web_discovery_node)
-    builder.add_node("confirm_package",      confirm_package_node)
-    builder.add_node("docs_discovery",       docs_discovery_node)
+    builder.add_node("resumption_inspector",  resumption_inspector_node)  # always first
+    builder.add_node("intent_parser",         intent_parser_node)
+    builder.add_node("web_discovery",         web_discovery_node)
+    builder.add_node("confirm_package",       confirm_package_node)
+    builder.add_node("local_cache_inspector", local_cache_inspector_node)
+    builder.add_node("end_view",              lambda s: {})  # pass-through; routes to END
+    builder.add_node("docs_discovery",        docs_discovery_node)
     builder.add_node("context7_agent",       context7_node)
     builder.add_node("docs_scraper",         docs_scraper_node)
     builder.add_node("github_agent",         github_agent_node)
@@ -60,11 +63,25 @@ def build_graph():
 
     # ── Edges: discovery phase ────────────────────────────────────────────────
 
-    builder.add_edge(START,                  "resumption_inspector")
-    builder.add_edge("resumption_inspector", "intent_parser")
-    builder.add_edge("intent_parser",        "web_discovery")
-    builder.add_edge("web_discovery",        "confirm_package")
-    builder.add_edge("confirm_package",      "docs_discovery")
+    builder.add_edge(START,                   "resumption_inspector")
+    builder.add_edge("resumption_inspector",  "intent_parser")
+    builder.add_edge("intent_parser",         "web_discovery")
+    builder.add_edge("web_discovery",         "confirm_package")
+    builder.add_edge("confirm_package",       "local_cache_inspector")
+
+    # ── Cache decision routing ────────────────────────────────────────────────
+    # "view"  → end_view → END  (existing doc displayed, no ingestion)
+    # else    → docs_discovery  (full / partial / update pipeline)
+
+    def _cache_router(state: DocSmithState) -> str:
+        return "end_view" if state.get("cache_decision") == "view" else "docs_discovery"
+
+    builder.add_conditional_edges(
+        "local_cache_inspector",
+        _cache_router,
+        {"end_view": "end_view", "docs_discovery": "docs_discovery"},
+    )
+    builder.add_edge("end_view", END)
 
     # ── Edges: parallel ingestion fan-out ─────────────────────────────────────
 

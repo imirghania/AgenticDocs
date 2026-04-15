@@ -199,6 +199,51 @@ def update_scratchpad_index(
     )
 
 
+# ── Session matching helpers ───────────────────────────────────────────────────
+
+def find_matching_sessions(
+    the_store: Any,
+    package_name: str,
+    github_url: str,
+) -> list[dict]:
+    """
+    Return all sessions whose package_name matches (case-insensitive exact)
+    and github_url normalises to the same canonical form, sorted by
+    updated_at descending.
+
+    Normalisation: lowercase, strip trailing slash, strip .git suffix.
+    If github_url is empty/None, match on package_name only.
+    """
+
+    def _normalise(url: str) -> str:
+        url = url.lower().strip().rstrip("/")
+        if url.endswith(".git"):
+            url = url[:-4]
+        return url
+
+    target_pkg = package_name.lower().strip()
+    target_url = _normalise(github_url) if github_url else ""
+
+    try:
+        items = the_store.search(("sessions",))
+    except Exception:
+        return []
+
+    result: list[dict] = []
+    for item in items:
+        val: Any = item.value if hasattr(item, "value") else item
+        if not isinstance(val, dict):
+            continue
+        if val.get("package_name", "").lower().strip() != target_pkg:
+            continue
+        stored_url = _normalise(val.get("github_url", ""))
+        if target_url and stored_url and stored_url != target_url:
+            continue
+        result.append(val)
+
+    return sorted(result, key=lambda x: x.get("updated_at", ""), reverse=True)
+
+
 # ── User preference helpers ────────────────────────────────────────────────────
 
 def get_user_preferences(the_store: Any, user_id: str) -> dict:

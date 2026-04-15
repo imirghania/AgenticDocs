@@ -148,8 +148,19 @@ async def write_review_chapter_node(state: DocSmithState) -> dict:
             if notes else ""
         )
 
+        # Prepend update context when this is a documentation update run
+        writer_system = _WRITER_SYSTEM_PROMPT
+        if state.get("is_update") and state.get("previous_doc_summary"):
+            writer_system = (
+                "You are updating existing documentation. A summary of the previous version "
+                "is provided below. Acknowledge the update at the top of the output with a brief "
+                "'What changed in this version' section before the main content. Highlight new "
+                "features and any breaking changes prominently.\n\n"
+                f"Previous documentation summary:\n{state['previous_doc_summary']}\n\n"
+            ) + writer_system
+
         content = await _invoke_writer([
-            ("system", _WRITER_SYSTEM_PROMPT),
+            ("system", writer_system),
             ("user",
              f"Package: {state['package_name']} ({state['language']}, {state['ecosystem']})\n\n"
              f"Chapter title: {chapter.title}\n"

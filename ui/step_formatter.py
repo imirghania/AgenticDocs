@@ -253,10 +253,78 @@ def _fmt_chapter_assembler(nd: dict, _read_sp: Callable) -> dict:
     return {"summary": summary, "details": []}
 
 
+def _fmt_local_cache_inspector(nd: dict, _read_sp: Callable) -> dict:
+    decision    = nd.get("cache_decision")
+    source_tid  = nd.get("cache_source_thread_id", "")
+    assessment  = nd.get("update_assessment") or {}
+    significance = assessment.get("significance_level", "")
+    assess_summary = assessment.get("summary", "")
+
+    if not decision:
+        return {"summary": "Checking local resources…", "details": []}
+
+    if decision == "regenerate":
+        return {"summary": "No existing resources found — starting fresh", "details": []}
+
+    if decision == "view":
+        details: list[str] = []
+        if source_tid:
+            details.append(f"Source session: `{source_tid[:8]}…`")
+        return {"summary": "Existing documentation found — user chose to view it", "details": details}
+
+    if decision == "full_refresh":
+        details = []
+        if assess_summary:
+            details.append(assess_summary)
+        releases = assessment.get("new_releases", [])
+        if releases:
+            details.append("New releases: " + ", ".join(r.get("tag", "") for r in releases[:3]))
+        details.append("Strategy: re-run all ingestion nodes")
+        return {
+            "summary": f"Updating documentation — full refresh ({significance} changes detected)",
+            "details": details,
+        }
+
+    if decision == "partial_refresh":
+        from src.components.local_cache_inspector import _INGESTION_NODES, _REUSE_TABLE
+        reuse = _REUSE_TABLE.get(significance, [])
+        rerun = [n for n in _INGESTION_NODES if n not in reuse]
+        details = []
+        if assess_summary:
+            details.append(assess_summary)
+        if reuse:
+            details.append(f"Nodes reused: {', '.join(reuse)}")
+        if rerun:
+            details.append(f"Nodes re-running: {', '.join(rerun)}")
+        return {
+            "summary": f"Updating documentation — partial refresh ({significance} changes detected)",
+            "details": details,
+        }
+
+    if decision == "use_partial":
+        completed: set = nd.get("completed_nodes", set())
+        n = len(completed)
+        details = []
+        if completed:
+            details.append(f"Loaded nodes: {', '.join(sorted(completed))}")
+        return {
+            "summary": f"Resuming from partial cache — {n} node(s) loaded",
+            "details": details,
+        }
+
+    return {"summary": f"Cache check complete ({decision})", "details": []}
+
+
+def _fmt_end_view(nd: dict, _read_sp: Callable) -> dict:
+    return {"summary": "Showing existing documentation", "details": []}
+
+
 # ── Dispatch table ─────────────────────────────────────────────────────────────
 
 _FORMATTERS: dict[str, Callable] = {
     "resumption_inspector": _fmt_resumption_inspector,
+    "local_cache_inspector": _fmt_local_cache_inspector,
+    "end_view":              _fmt_end_view,
     "intent_parser":        _fmt_intent_parser,
     "web_discovery":        _fmt_web_discovery,
     "confirm_package":      _fmt_confirm_package,
