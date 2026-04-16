@@ -1,5 +1,5 @@
 """
-Resumption inspector — the first node in the DocSmith graph.
+Resumption inspector — the first node in the AgenticDocs graph.
 
 On every graph invocation this node:
 1. Reads sessions/{thread_id}/ to find which nodes already completed.
@@ -20,7 +20,7 @@ from src.graph.scratchpad import (
     SCRATCHPAD_FILES,
 )
 from src.graph.store import put_session_meta, store as global_store
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 # Import DimensionScore so we can deserialise quality_report correctly.
 # enrichment_node accesses .gaps on each entry; plain dicts would fail.
@@ -41,7 +41,7 @@ _ALL_NODES = [
 ]
 
 
-async def resumption_inspector_node(state: DocSmithState) -> dict:
+async def resumption_inspector_node(state: AgenticDocsState) -> dict:
     thread_id = state["thread_id"]
     user_id = state.get("user_id", "anonymous")
     scratchpad_dir = f"sessions/{thread_id}"

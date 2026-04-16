@@ -2,7 +2,7 @@ import re
 
 import httpx
 from langchain_tavily import TavilySearch
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 _docs_search = TavilySearch(
@@ -27,7 +27,7 @@ def _homepage_from_github_api(repo_path: str) -> str | None:
         resp = httpx.get(
             f"https://api.github.com/repos/{repo_path}",
             headers={
-                "Accept": "application/vnd.github.v3+json", "User-Agent": "docsmith-agent"
+                "Accept": "application/vnd.github.v3+json", "User-Agent": "agenticdocs-agent"
                 },
             timeout=10,
             follow_redirects=True,
@@ -49,7 +49,7 @@ def _first_result_url(tavily_response: dict) -> str | None:
     return results[0].get("url") if results else None
 
 
-def docs_discovery_node(state: DocSmithState) -> dict:
+def docs_discovery_node(state: AgenticDocsState) -> dict:
     github_url = state.get("github_url")
     package_name = state["package_name"]
     language = state["language"]

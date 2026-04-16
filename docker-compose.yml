@@ -1,0 +1,79 @@
+# AgenticDocs – docker-compose
+#
+# Default (no profile): SQLite checkpoints + FilesystemStore.  No extra services needed.
+#   docker compose up --build
+#
+# With Postgres checkpointer:
+#   docker compose --profile postgres up --build
+#   (set POSTGRES_URL in .env — see .env.example)
+#
+# With Redis long-term store:
+#   docker compose --profile redis up --build
+#   (set REDIS_URL in .env — see .env.example)
+#
+# Full stack (postgres + redis):
+#   docker compose --profile full up --build
+
+services:
+  app:
+    build: .
+    image: agenticdocs:latest
+    ports:
+      - "${APP_PORT:-8501}:8501"
+    # Load all settings from .env (API keys, provider, optional service URLs)
+    env_file:
+      - .env
+    # These two vars are explicitly passed so compose can interpolate service
+    # hostnames (e.g. POSTGRES_URL references the "postgres" service name).
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL:-}
+      - REDIS_URL=${REDIS_URL:-}
+    volumes:
+      # Persist session scratchpads, SQLite checkpoint DB, and FilesystemStore
+      - ./sessions:/app/sessions
+      # Persist generated documentation output
+      - ./output:/app/output
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+
+  # ── Optional: PostgreSQL checkpointer ───────────────────────────────────────
+  # Activate with: docker compose --profile postgres up
+  # Set in .env: POSTGRES_URL=postgresql://agenticdocs:agenticdocs@postgres:5432/agenticdocs
+  postgres:
+    image: postgres:16-alpine
+    profiles: [postgres, full]
+    environment:
+      POSTGRES_DB: agenticdocs
+      POSTGRES_USER: ${POSTGRES_USER:-agenticdocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agenticdocs}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agenticdocs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Optional: Redis long-term store ─────────────────────────────────────────
+  # Activate with: docker compose --profile redis up
+  # Set in .env: REDIS_URL=redis://redis:6379/0
+  redis:
+    image: redis:7-alpine
+    profiles: [redis, full]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:

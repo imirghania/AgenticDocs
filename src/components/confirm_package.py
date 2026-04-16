@@ -7,7 +7,7 @@ from langgraph.types import interrupt
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 class PackageSelectionResult(BaseModel):
@@ -88,7 +88,7 @@ def _extract_docs_url(result: dict) -> Optional[str]:
 
 
 @skippable("confirm_package")
-def confirm_package_node(state: DocSmithState) -> dict:
+def confirm_package_node(state: AgenticDocsState) -> dict:
     results = state["search_results"][:5]
     formatted = _format_results(results)
 

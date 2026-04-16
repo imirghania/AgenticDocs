@@ -7,7 +7,7 @@ from langchain_tavily import TavilySearch
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 _ENRICHMENT_PROMPT = """You are a documentation researcher filling gaps identified by a quality review.
@@ -19,7 +19,7 @@ Be thorough — write everything you find, no truncation."""
 
 
 @skippable("enrichment_agent")
-async def enrichment_node(state: DocSmithState) -> dict:
+async def enrichment_node(state: AgenticDocsState) -> dict:
     report = state.get("quality_report", {})
     # Support both DimensionScore objects and plain dicts (after deserialization)
     gaps = []

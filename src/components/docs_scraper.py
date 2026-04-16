@@ -4,11 +4,11 @@ from bs4 import BeautifulSoup
 
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 @skippable("docs_scraper")
-async def docs_scraper_node(state: DocSmithState) -> dict:
+async def docs_scraper_node(state: AgenticDocsState) -> dict:
     url = state.get("docs_url")
     if not url:
         return {"scratchpad_files": []}

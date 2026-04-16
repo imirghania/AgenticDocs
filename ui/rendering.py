@@ -585,7 +585,7 @@ def render_sidebar() -> None:
             st.markdown(_SIDEBAR_CSS, unsafe_allow_html=True)
             st.session_state["sidebar_css_injected"] = True
 
-        st.title("📚 DocSmith")
+        st.title("📚 AgenticDocs")
         st.markdown("---")
 
         if st.button("＋ New session", use_container_width=True):

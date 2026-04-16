@@ -1,5 +1,5 @@
 """
-DocSmith — Streamlit entry point.
+AgenticDocs — Streamlit entry point.
 
 Run with:  streamlit run streamlit_app.py
 
@@ -28,7 +28,7 @@ from ui.session import get_or_create_user_id
 
 
 def main() -> None:
-    st.set_page_config(page_title="DocSmith", page_icon="📚", layout="wide")
+    st.set_page_config(page_title="AgenticDocs", page_icon="📚", layout="wide")
     st.markdown(PIPELINE_CSS, unsafe_allow_html=True)
 
     # ── One-time session state initialisation ─────────────────────────────────

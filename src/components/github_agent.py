@@ -2,11 +2,11 @@ from gitingest import ingest
 
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 @skippable("github_agent")
-def github_agent_node(state: DocSmithState) -> dict:
+def github_agent_node(state: AgenticDocsState) -> dict:
     url = state.get("github_url")
     if not url:
         return {"scratchpad_files": []}

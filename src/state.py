@@ -13,7 +13,7 @@ def merge_dicts(a: dict | None, b: dict | None) -> dict:  # type: ignore[type-ar
     return merged
 
 
-class DocSmithState(MessagesState):
+class AgenticDocsState(MessagesState):
     # Session identity (set before graph invocation)
     thread_id: str
     user_id: str

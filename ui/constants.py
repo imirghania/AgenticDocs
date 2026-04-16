@@ -52,7 +52,7 @@ STATUS_COLORS: dict[str, str] = {
 }
 
 PIPELINE_CSS = """<style>
-/* DocSmith pipeline step styles */
+/* AgenticDocs pipeline step styles */
 [data-testid="stStatusWidget"],
 [data-testid="stStatus"],
 details[data-testid] {

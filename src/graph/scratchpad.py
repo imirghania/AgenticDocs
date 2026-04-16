@@ -1,5 +1,5 @@
 """
-Scratchpad file convention for DocSmith.
+Scratchpad file convention for AgenticDocs.
 
 Every node that produces durable output writes a numbered file under
 sessions/{thread_id}/ before returning. Presence of a non-empty file

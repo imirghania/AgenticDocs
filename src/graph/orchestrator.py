@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import Send
 
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 from src.components.resumption_inspector import resumption_inspector_node
 from src.components.intent_parser import intent_parser_node
 from src.components.web_discovery import web_discovery_node
@@ -39,7 +39,7 @@ def get_checkpointer():
 
 
 def build_graph():
-    builder = StateGraph(DocSmithState)
+    builder = StateGraph(AgenticDocsState)
 
     # Node registrations
     builder.add_node("resumption_inspector",  resumption_inspector_node)  # always first
@@ -70,7 +70,7 @@ def build_graph():
     # Cache decision routing
     # "view"  → end_view → END  (existing doc displayed, no ingestion)
     # else    → docs_discovery  (full / partial / update pipeline)
-    def _cache_router(state: DocSmithState) -> str:
+    def _cache_router(state: AgenticDocsState) -> str:
         return "end_view" if state.get("cache_decision") == "view" else "docs_discovery"
 
     builder.add_conditional_edges(
@@ -81,7 +81,7 @@ def build_graph():
     builder.add_edge("end_view", END)
 
     # Edges: parallel ingestion fan-out
-    def fan_out_ingestion(state: DocSmithState):
+    def fan_out_ingestion(state: AgenticDocsState):
         return [
             Send("context7_agent", state),
             Send("docs_scraper",   state),
@@ -104,7 +104,7 @@ def build_graph():
     builder.add_edge("enrichment_agent", "chapter_planner")
 
     # Edges: parallel chapter writing fan-out
-    def fan_out_chapters(state: DocSmithState):
+    def fan_out_chapters(state: AgenticDocsState):
         return [
             Send("write_review_chapter", {**state, "current_chapter": chapter})
             for chapter in state["chapters"]

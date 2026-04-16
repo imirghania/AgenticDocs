@@ -5,7 +5,7 @@ from langchain_tavily import TavilySearch
 from src.core.settings import settings
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 def _url_relevance_bonus(url: str, package_name: str) -> float:
@@ -41,7 +41,7 @@ def _url_relevance_bonus(url: str, package_name: str) -> float:
 
 
 @skippable("web_discovery")
-def web_discovery_node(state: DocSmithState) -> dict:
+def web_discovery_node(state: AgenticDocsState) -> dict:
     name, lang = state["package_name"], state["language"]
 
     github_search = TavilySearch(

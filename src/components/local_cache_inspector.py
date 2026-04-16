@@ -36,7 +36,7 @@ from src.graph.store import (
     put_session_meta,
     store as global_store,
 )
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 _GITHUB_TIMEOUT = 15.0  # seconds per request
 
@@ -84,7 +84,7 @@ _REUSE_TABLE: dict[str, list[str]] = {
 
 # Main node
 @skippable("local_cache_inspector")
-async def local_cache_inspector_node(state: DocSmithState) -> dict:
+async def local_cache_inspector_node(state: AgenticDocsState) -> dict:
     thread_id  = state["thread_id"]
     pkg_name   = state["package_name"]
     github_url = state.get("github_url") or ""

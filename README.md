@@ -1,8 +1,8 @@
-# DocSmith
+# AgenticDocs
 
 An AI agent that generates comprehensive, structured documentation for any open-source package. Built with LangGraph and Streamlit.
 
-Given a package name, DocSmith searches GitHub, asks you to confirm the right repo, ingests source code and official docs in parallel, evaluates quality across four dimensions, fills gaps through targeted enrichment, then writes a multi-chapter documentation set — with full resumption if interrupted.
+Given a package name, AgenticDocs searches GitHub, asks you to confirm the right repo, ingests source code and official docs in parallel, evaluates quality across four dimensions, fills gaps through targeted enrichment, then writes a multi-chapter documentation set — with full resumption if interrupted.
 
 ---
 
@@ -61,7 +61,7 @@ LLM_API_KEY=your_api_key_here
 TAVILY_API_KEY=your_tavily_key_here
 
 # Optional — defaults to SQLite / in-memory if unset
-POSTGRES_URL=postgresql://user:password@localhost:5432/docsmith
+POSTGRES_URL=postgresql://user:password@localhost:5432/agenticdocs
 REDIS_URL=redis://localhost:6379/0
 ```
 

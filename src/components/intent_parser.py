@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 from src.core.llm import llm
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 class PackageIntent(BaseModel):
@@ -14,7 +14,7 @@ class PackageIntent(BaseModel):
 extractor = llm.with_structured_output(PackageIntent)
 
 
-def intent_parser_node(state: DocSmithState) -> dict:
+def intent_parser_node(state: AgenticDocsState) -> dict:
     # user_msg = state["messages"][-1].content
     user_msg = state["messages"][0].content
     print("[Intent parser] Parsing user message: ", user_msg)

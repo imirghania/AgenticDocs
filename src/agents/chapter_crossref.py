@@ -31,7 +31,7 @@ from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
 from src.graph.store import put_session_meta
 from src.graph.store import store as global_store
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 # ── System prompts ─────────────────────────────────────────────────────────────
@@ -294,7 +294,7 @@ async def _generate_reading_guide(
 # ── Node ───────────────────────────────────────────────────────────────────────
 
 @skippable("chapter_crossref")
-async def chapter_crossref_node(state: DocSmithState) -> dict:  # type: ignore[type-arg]
+async def chapter_crossref_node(state: AgenticDocsState) -> dict:  # type: ignore[type-arg]
     output_dir    = _output_dir(state)
     thread_id     = state["thread_id"]
     chapter_plan: list[str] = state.get("chapter_plan") or []

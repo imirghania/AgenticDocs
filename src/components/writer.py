@@ -1,5 +1,5 @@
 """
-Writer nodes for DocSmith.
+Writer nodes for AgenticDocs.
 
 chapter_planner_node has been moved to src/agents/chapter_planner.py.
 This module retains the shared models, helpers, and prompts that the
@@ -20,7 +20,7 @@ from tenacity import retry, retry_if_exception_type, wait_exponential
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 # ── Pydantic models (also imported by src/agents/chapter_planner.py) ──────────
@@ -50,7 +50,7 @@ class ThoroughnessReview(BaseModel):
 
 # ── Shared helpers (also imported by src/agents/) ─────────────────────────────
 
-def _output_dir(state: DocSmithState) -> Path:
+def _output_dir(state: AgenticDocsState) -> Path:
     slug = state["package_name"].lower().replace(" ", "_").replace("/", "_")
     p = Path("output") / slug
     p.mkdir(parents=True, exist_ok=True)
@@ -250,7 +250,7 @@ async def _invoke_reviewer(messages: list) -> ThoroughnessReview:  # type: ignor
 # ── Node: write_review_chapter_node ──────────────────────────────────────────
 # Not individually skippable (fan-out). Only chapter_assembler is skippable.
 
-async def write_review_chapter_node(state: DocSmithState) -> dict:  # type: ignore[type-arg]
+async def write_review_chapter_node(state: AgenticDocsState) -> dict:  # type: ignore[type-arg]
     chapter      = ChapterSpec(**(state["current_chapter"] or {}))
     chapter_path = _output_dir(state) / f"{chapter.slug}.md"
 
@@ -379,7 +379,7 @@ async def write_review_chapter_node(state: DocSmithState) -> dict:  # type: igno
 # ── Node: chapter_assembler_node ─────────────────────────────────────────────
 
 @skippable("writer_agent")
-async def chapter_assembler_node(state: DocSmithState) -> dict:  # type: ignore[type-arg]
+async def chapter_assembler_node(state: AgenticDocsState) -> dict:  # type: ignore[type-arg]
     output_dir = _output_dir(state)
 
     chapter_files = sorted(output_dir.glob("*.md"))

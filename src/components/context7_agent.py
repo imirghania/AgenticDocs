@@ -4,7 +4,7 @@ from langchain.agents import create_agent
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 async def build_context7_agent(llm):
@@ -30,7 +30,7 @@ async def build_context7_agent(llm):
 
 
 @skippable("context7_agent")
-async def context7_node(state: DocSmithState) -> dict:
+async def context7_node(state: AgenticDocsState) -> dict:
     try:
         agent = await build_context7_agent(llm)
         result = await agent.ainvoke({

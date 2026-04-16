@@ -9,7 +9,7 @@ from tenacity import retry, retry_if_exception, wait_exponential
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 def _is_rate_limit_error(exc: BaseException) -> bool:
@@ -56,7 +56,7 @@ def _read_scratchpad(scratchpad_dir: str) -> str:
 
 
 @skippable("quality_judge")
-async def quality_judge_node(state: DocSmithState) -> dict:
+async def quality_judge_node(state: AgenticDocsState) -> dict:
     combined = _read_scratchpad(state["scratchpad_dir"])
     sliced = combined[:25_000]  # per-eval slice only
 
@@ -114,7 +114,7 @@ async def quality_judge_node(state: DocSmithState) -> dict:
     }
 
 
-def quality_router(state: DocSmithState) -> str:
+def quality_router(state: AgenticDocsState) -> str:
     """Route to enrichment if score is below threshold, otherwise go straight to chapter planner."""
     if state.get("quality_score", 1.0) < 0.7:
         return "enrichment_agent"

@@ -1,5 +1,5 @@
 """
-Long-term store for DocSmith session metadata and user preferences.
+Long-term store for AgenticDocs session metadata and user preferences.
 
 Priority:
   1. RedisStore  — if REDIS_URL env var is set

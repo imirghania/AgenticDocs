@@ -1,5 +1,5 @@
 """
-skippable() decorator for DocSmith nodes.
+skippable() decorator for AgenticDocs nodes.
 
 When a node's scratchpad file already exists (detected by resumption_inspector
 and stored in state['completed_nodes']), the node is skipped entirely and

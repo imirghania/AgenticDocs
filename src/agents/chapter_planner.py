@@ -25,11 +25,11 @@ from src.components.writer import (
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
 from src.graph.store import put_session_meta, store as global_store
-from src.state import DocSmithState
+from src.state import AgenticDocsState
 
 
 @skippable("chapter_planner")
-async def chapter_planner_node(state: DocSmithState) -> dict:
+async def chapter_planner_node(state: AgenticDocsState) -> dict:
     summary = _read_scratchpad_summary(state["scratchpad_dir"])
     thread_id = state["thread_id"]
     user_msg = (
