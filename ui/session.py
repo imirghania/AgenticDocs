@@ -3,9 +3,14 @@ Session utilities: user identity persistence, scratchpad restore, time helpers.
 """
 
 import json
+import os
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import streamlit as st
 
 from src.graph.scratchpad import list_completed_nodes, read_scratchpad, SCRATCHPAD_FILES
 from ui.constants import NODE_LABELS, NODE_ORDER
@@ -30,17 +35,75 @@ def get_or_create_user_id() -> str:
     return uid
 
 
-def relative_time(iso_str: str) -> str:
-    """Return a human-readable relative time string (e.g. '5m ago')."""
+def _parse_utc(iso_str: str) -> datetime:
+    """Parse an ISO-8601 string (with or without Z suffix) to a UTC-aware datetime."""
+    normalised = re.sub(r"Z$", "+00:00", iso_str.strip())
+    dt = datetime.fromisoformat(normalised)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def get_local_tz() -> timezone | ZoneInfo:
+    """
+    Determine the local timezone once per session, cached in st.session_state.
+
+    Priority:
+      1. TZ environment variable → ZoneInfo(TZ)
+      2. Fallback → UTC (a one-time sidebar caption is shown by render_sidebar)
+    """
+    cached = st.session_state.get("resolved_tz")
+    if cached is not None:
+        return cached
+    tz_env = os.environ.get("TZ", "").strip()
+    if tz_env:
+        try:
+            tz = ZoneInfo(tz_env)
+            st.session_state["resolved_tz"] = tz
+            return tz
+        except (ZoneInfoNotFoundError, Exception):
+            pass
+    st.session_state["resolved_tz"] = timezone.utc
+    return timezone.utc
+
+
+def format_local_time(iso_str: str) -> str:
+    """
+    Convert a UTC ISO-8601 string to a human-readable local time string.
+
+    Uses get_local_tz() for the local offset. Returns relative strings for
+    recent events and an absolute local date for events older than one week.
+    """
+    if not iso_str:
+        return "unknown"
     try:
-        dt   = datetime.fromisoformat(iso_str)
-        secs = int((datetime.now(timezone.utc) - dt).total_seconds())
-        if secs < 60:    return f"{secs}s ago"
-        if secs < 3600:  return f"{secs // 60}m ago"
-        if secs < 86400: return f"{secs // 3600}h ago"
-        return f"{secs // 86400}d ago"
+        utc_dt   = _parse_utc(iso_str)
+        local_tz = get_local_tz()
+        local_dt = utc_dt.astimezone(local_tz)
+        now_local = datetime.now(local_tz)
+        delta   = now_local - local_dt
+        seconds = int(delta.total_seconds())
+        if seconds < 0:
+            return "just now"
+        if seconds < 60:
+            return "just now"
+        if seconds < 3600:
+            m = seconds // 60
+            return f"{m} min ago"
+        if seconds < 86400:
+            h = seconds // 3600
+            return f"{h} h ago"
+        if seconds < 7 * 86400:
+            d = seconds // 86400
+            return f"{d} d ago"
+        return local_dt.strftime("%-d %b %Y, %H:%M")
     except Exception:
-        return iso_str[:10] if iso_str else ""
+        return iso_str[:16]
+
+
+def relative_time(iso_str: str) -> str:
+    """Legacy wrapper — delegates to format_local_time."""
+    return format_local_time(iso_str)
 
 
 def restore_steps_from_scratchpad(thread_id: str) -> list[dict]:

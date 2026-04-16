@@ -7,6 +7,12 @@ def _union_sets(a: set, b: set) -> set:
     return a | b
 
 
+def merge_dicts(a: dict | None, b: dict | None) -> dict:  # type: ignore[type-arg]
+    merged: dict = dict(a or {})  # type: ignore[type-arg]
+    merged.update(b or {})
+    return merged
+
+
 class DocSmithState(MessagesState):
     # Session identity (set before graph invocation)
     thread_id: str
@@ -41,6 +47,19 @@ class DocSmithState(MessagesState):
     completed_nodes: Annotated[set[str], _union_sets]   # set-union reducer
     is_resuming: bool
     resumption_summary: str
+
+    # Part 1 — Key terms and analogies (accumulated across fan-out chapters)
+    defined_terms: Annotated[dict[str, str], merge_dicts]         # term (lowercase) → definition
+    chapter_analogies: Annotated[dict[str, list[str]], merge_dicts]  # chapter_title → analogy texts
+
+    # Part 2 — Review tracking
+    chapter_review_results: Annotated[dict[str, dict], merge_dicts]  # type: ignore[type-arg]  # chapter_title → reviewer JSON
+    chapters_revised: Annotated[list[str], operator.add]             # titles that needed a revision pass
+
+    # Part 3 — Cross-reference outputs (set once by chapter_crossref_node)
+    concept_index: Optional[dict[str, str]]       # term → chapter_title where first defined
+    chapter_transitions: Optional[dict[str, str]] # from_chapter_title → transition paragraph
+    reading_guide: Optional[str]                  # "## How to read this documentation" markdown
 
     # Cache / update detection (local_cache_inspector)
     cache_decision: Optional[str]             # "view"|"regenerate"|"use_partial"|"full_refresh"|"partial_refresh"

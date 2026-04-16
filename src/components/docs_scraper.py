@@ -20,8 +20,8 @@ async def docs_scraper_node(state: DocSmithState) -> dict:
         try:
             async with httpx.AsyncClient() as client:
                 r = await client.get(url.rstrip("/") + suffix,
-                                     timeout=15,
-                                     follow_redirects=True)
+                                    timeout=15,
+                                    follow_redirects=True)
             if r.status_code == 200:
                 content = r.text
                 break

@@ -41,8 +41,7 @@ def get_checkpointer():
 def build_graph():
     builder = StateGraph(DocSmithState)
 
-    # ── Node registrations ────────────────────────────────────────────────────
-
+    # Node registrations
     builder.add_node("resumption_inspector",  resumption_inspector_node)  # always first
     builder.add_node("intent_parser",         intent_parser_node)
     builder.add_node("web_discovery",         web_discovery_node)
@@ -61,18 +60,16 @@ def build_graph():
     builder.add_node("chapter_crossref",     chapter_crossref_node)
     builder.add_node("chapter_assembler",    chapter_assembler_node)
 
-    # ── Edges: discovery phase ────────────────────────────────────────────────
-
+    # Edges: discovery phase
     builder.add_edge(START,                   "resumption_inspector")
     builder.add_edge("resumption_inspector",  "intent_parser")
     builder.add_edge("intent_parser",         "web_discovery")
     builder.add_edge("web_discovery",         "confirm_package")
     builder.add_edge("confirm_package",       "local_cache_inspector")
 
-    # ── Cache decision routing ────────────────────────────────────────────────
+    # Cache decision routing
     # "view"  → end_view → END  (existing doc displayed, no ingestion)
     # else    → docs_discovery  (full / partial / update pipeline)
-
     def _cache_router(state: DocSmithState) -> str:
         return "end_view" if state.get("cache_decision") == "view" else "docs_discovery"
 
@@ -83,8 +80,7 @@ def build_graph():
     )
     builder.add_edge("end_view", END)
 
-    # ── Edges: parallel ingestion fan-out ─────────────────────────────────────
-
+    # Edges: parallel ingestion fan-out
     def fan_out_ingestion(state: DocSmithState):
         return [
             Send("context7_agent", state),
@@ -94,23 +90,20 @@ def build_graph():
 
     builder.add_conditional_edges("docs_discovery", fan_out_ingestion)
 
-    # ── Edges: fan-in → quality gate ─────────────────────────────────────────
-
+    # Edges: fan-in → quality gate
     builder.add_edge("context7_agent", "aggregator")
     builder.add_edge("docs_scraper",   "aggregator")
     builder.add_edge("github_agent",   "aggregator")
     builder.add_edge("aggregator",     "quality_judge")
 
-    # ── Edges: conditional quality routing ───────────────────────────────────
-
+    # Edges: conditional quality routing
     builder.add_conditional_edges("quality_judge", quality_router, {
         "enrichment_agent": "enrichment_agent",
         "chapter_planner":  "chapter_planner",
     })
     builder.add_edge("enrichment_agent", "chapter_planner")
 
-    # ── Edges: parallel chapter writing fan-out ───────────────────────────────
-
+    # Edges: parallel chapter writing fan-out
     def fan_out_chapters(state: DocSmithState):
         return [
             Send("write_review_chapter", {**state, "current_chapter": chapter})
@@ -119,8 +112,7 @@ def build_graph():
 
     builder.add_conditional_edges("chapter_planner", fan_out_chapters)
 
-    # ── Edges: fan-in → cross-reference → assembly ───────────────────────────
-
+    # Edges: fan-in → cross-reference → assembly
     builder.add_edge("write_review_chapter", "chapter_crossref")
     builder.add_edge("chapter_crossref",     "chapter_assembler")
     builder.add_edge("chapter_assembler",    END)

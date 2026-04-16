@@ -58,8 +58,7 @@ async def resumption_inspector_node(state: DocSmithState) -> dict:
         "user_id": user_id,
     }
 
-    # ── Restore state from each completed node's scratchpad file ──────────────
-
+    # Restore state from each completed node's scratchpad file
     scratchpad_file_paths: list[str] = []
 
     if "web_discovery" in completed:
@@ -110,14 +109,13 @@ async def resumption_inspector_node(state: DocSmithState) -> dict:
 
     # chapter_crossref: no state field to restore — enriched files are already
     # on disk in output/{package_slug}/. The completed_nodes set prevents re-run.
-
     if "writer_agent" in completed:
         raw = read_scratchpad(thread_id, "writer_agent")
         if raw:
             updates["final_documentation"] = raw
 
-    # ── Build user-visible summary ────────────────────────────────────────────
 
+    # Build user-visible summary
     if is_resuming:
         pending = [n for n in _ALL_NODES if n not in completed]
         summary = (
@@ -130,8 +128,8 @@ async def resumption_inspector_node(state: DocSmithState) -> dict:
     updates["resumption_summary"] = summary
     updates["messages"] = [("assistant", summary)]
 
-    # ── Update long-term session store ────────────────────────────────────────
 
+    # Update long-term session store
     now = datetime.now(timezone.utc).isoformat()
     put_session_meta(global_store, thread_id, {
         "thread_id": thread_id,

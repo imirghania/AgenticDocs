@@ -15,7 +15,7 @@ LLM update assessment is a direct llm.invoke call.
 """
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -82,8 +82,7 @@ _REUSE_TABLE: dict[str, list[str]] = {
 }
 
 
-# ── Main node ─────────────────────────────────────────────────────────────────
-
+# Main node
 @skippable("local_cache_inspector")
 async def local_cache_inspector_node(state: DocSmithState) -> dict:
     thread_id  = state["thread_id"]
@@ -225,8 +224,7 @@ async def local_cache_inspector_node(state: DocSmithState) -> dict:
     return updates
 
 
-# ── Helpers: session detection ─────────────────────────────────────────────────
-
+# Helpers: session detection
 def _final_doc_exists(thread_id: str) -> bool:
     """Return True if 10_final_output.md exists and is non-empty."""
     path = Path("sessions") / thread_id / SCRATCHPAD_FILES["writer_agent"]
@@ -252,15 +250,14 @@ def _has_ingestion_files(thread_id: str) -> bool:
     return False
 
 
-# ── Helpers: HITL payload builders ────────────────────────────────────────────
-
+# Helpers: HITL payload builders
 def _build_state_a_payload(
     pkg_name: str,
     github_url: str,
     completed_sessions: list[dict],
 ) -> dict:
     best = completed_sessions[0]
-    meta = get_session_meta(global_store, best["thread_id"]) or {}
+    # meta = get_session_meta(global_store, best["thread_id"]) or {}
 
     def _session_summary(s: dict) -> dict:
         m = get_session_meta(global_store, s["thread_id"]) or s
@@ -302,8 +299,7 @@ def _build_state_b_payload(
     }
 
 
-# ── Helpers: GitHub change detection ──────────────────────────────────────────
-
+# Helpers: GitHub change detection
 def _extract_owner_repo(github_url: str) -> tuple[str, str] | None:
     """Parse 'https://github.com/owner/repo' → ('owner', 'repo')."""
     from urllib.parse import urlparse
@@ -458,8 +454,7 @@ async def _run_update_check(
     return fallback  # unreachable but satisfies type checker
 
 
-# ── Helpers: state restoration for partial cache ───────────────────────────────
-
+# Helpers: state restoration for partial cache
 def _load_partial_state(source_tid: str, copied_nodes: list[str]) -> dict:
     """
     Load state fields from copied scratchpad files.

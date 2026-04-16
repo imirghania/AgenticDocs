@@ -13,17 +13,16 @@ Sections:
 
 import queue
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
 
 from src.graph.scratchpad import read_scratchpad, SCRATCHPAD_FILES
 from src.graph.store import store, get_session_meta, list_user_sessions, delete_session
-from ui.constants import NODE_LABELS, STATUS_COLORS, NONE_OF_THE_ABOVE
+from ui.constants import NODE_LABELS, NONE_OF_THE_ABOVE
 from ui.event_processor import process_events
 from ui.graph_runner import start_graph_thread
-from ui.session import relative_time, restore_steps_from_scratchpad
+from ui.session import format_local_time, _parse_utc, restore_steps_from_scratchpad
 
 
 # ── 1. Detail renderer ────────────────────────────────────────────────────────
@@ -100,18 +99,19 @@ def _render_step_body(step: dict, node_name: str, state: str) -> None:
 
 
 def _render_step_footer(step: dict) -> None:
-    started  = step.get("started_at", "")
-    finished = step.get("finished_at")
-    if not started:
+    started_str  = step.get("started_at", "")
+    finished_str = step.get("finished_at")
+    if not started_str:
         return
     try:
-        d1 = datetime.fromisoformat(started)
+        started  = _parse_utc(started_str)
+        finished = _parse_utc(finished_str) if finished_str else None
         if finished:
-            d2       = datetime.fromisoformat(finished)
-            duration = f"{(d2 - d1).total_seconds():.1f}s"
-            footer   = f"Started {started[11:19]}  ·  Duration {duration}"
+            secs = int((finished - started).total_seconds())
+            duration_str = f"{secs}s" if secs < 60 else f"{secs // 60}m {secs % 60}s"
+            footer = f"Started {format_local_time(started_str)}  ·  Duration {duration_str}"
         else:
-            footer = f"Started {started[11:19]}"
+            footer = f"Started {format_local_time(started_str)}"
         _, col = st.columns([8, 2])
         with col:
             st.caption(footer)
@@ -186,7 +186,7 @@ def _render_hitl_existing_doc(data: dict, hitl_q: queue.Queue) -> None:
 
         meta_parts = []
         if updated_at:
-            meta_parts.append(f"Last generated: {relative_time(updated_at)}")
+            meta_parts.append(f"Last generated: {format_local_time(updated_at)}")
         if quality_score is not None:
             meta_parts.append(f"quality {quality_score:.1f}/5")
         if chapter_count:
@@ -208,7 +208,7 @@ def _render_hitl_existing_doc(data: dict, hitl_q: queue.Queue) -> None:
                 for s in others:
                     cols = st.columns([2, 1, 1])
                     cols[0].caption(f"`{s.get('thread_id', '')[:8]}…`")
-                    cols[1].caption(relative_time(s.get("updated_at", "")))
+                    cols[1].caption(format_local_time(s.get("updated_at", "")))
                     if s.get("quality_score") is not None:
                         cols[2].caption(f"Q {s['quality_score']:.1f}/5")
 
@@ -233,7 +233,7 @@ def _render_hitl_partial_cache(data: dict, hitl_q: queue.Queue) -> None:
 
     st.info(
         f"Partial resources found for **{pkg_name}** "
-        f"(last completed node: `{last_node}`, updated {relative_time(updated_at)})."
+        f"(last completed node: `{last_node}`, updated {format_local_time(updated_at)})."
     )
     options = [
         "Resume from existing partial resources",
@@ -260,7 +260,7 @@ def _render_hitl_update_assessment(data: dict, hitl_q: queue.Queue) -> None:
 
     st.markdown(
         f"### Changes detected for **{pkg_name}** "
-        f"since {relative_time(baseline_date)}"
+        f"since {format_local_time(baseline_date)}"
     )
 
     if not available:
@@ -361,7 +361,7 @@ def render_view_existing_doc(thread_id: str) -> None:
 
     caption_parts: list[str] = []
     if updated_at := meta.get("updated_at"):
-        caption_parts.append(f"Generated {relative_time(updated_at)}")
+        caption_parts.append(f"Generated {format_local_time(updated_at)}")
     if qs := meta.get("quality_score"):
         caption_parts.append(f"Quality {qs:.1f}/5")
     if cc := meta.get("chapter_count"):
@@ -545,9 +545,46 @@ def render_completed_session(thread_id: str) -> None:
 
 # ── 7. Sidebar ────────────────────────────────────────────────────────────────
 
+_SIDEBAR_CSS = """<style>
+:root {
+  --border: rgba(49,51,63,0.15);
+  --surface: rgba(255,255,255,0.02);
+  --fg: inherit;
+  --muted: rgba(49,51,63,0.55);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --border: rgba(250,250,250,0.15);
+    --surface: rgba(255,255,255,0.04);
+    --muted: rgba(250,250,250,0.45);
+  }
+}
+</style>"""
+
+_STATUS_STYLE: dict[str, tuple[str, str]] = {
+    "completed":   ("#1D9E75", "completed"),
+    "in_progress": ("#378ADD", "in progress"),
+    "running":     ("#378ADD", "in progress"),
+    "paused":      ("#BA7517", "paused"),
+    "failed":      ("#E24B4A", "failed"),
+}
+
+
+def _status_label(status: str) -> tuple[str, str]:
+    return _STATUS_STYLE.get(status, ("#888780", "unknown"))
+
+
 def render_sidebar() -> None:
-    """Render the sidebar: new-session button, status legend, and session list."""
+    """Render the sidebar: new-session button and session list."""
+    import os
+
     with st.sidebar:
+        # Inject CSS variables once per session
+        st.session_state.setdefault("sidebar_css_injected", False)
+        if not st.session_state["sidebar_css_injected"]:
+            st.markdown(_SIDEBAR_CSS, unsafe_allow_html=True)
+            st.session_state["sidebar_css_injected"] = True
+
         st.title("📚 DocSmith")
         st.markdown("---")
 
@@ -557,14 +594,10 @@ def render_sidebar() -> None:
 
         st.markdown("### Past sessions")
 
-        with st.expander("Status legend", expanded=False):
-            st.markdown(
-                "🟢 **Completed** — documentation generated  \n"
-                "🔵 **Running** — pipeline is active  \n"
-                "🟠 **Paused** — interrupted, can be resumed  \n"
-                "🔴 **Failed** — pipeline encountered an error  \n"
-                "⚪ **Unknown** — status not yet recorded"
-            )
+        # One-time UTC notice when no TZ env var is set
+        if not os.environ.get("TZ") and not st.session_state.get("tz_caption_shown"):
+            st.caption("Times shown in UTC. Set TZ env var for local time.")
+            st.session_state["tz_caption_shown"] = True
 
         sessions = list_user_sessions(store, st.session_state.user_id)
         if not sessions:
@@ -576,51 +609,88 @@ def render_sidebar() -> None:
 
 def _render_session_card(s: dict) -> None:
     status  = s.get("status", "unknown")
-    icon    = STATUS_COLORS.get(status, "⚪")
     pkg     = s.get("package_name", "Unknown")
     tid     = s.get("thread_id", "")
-    updated = relative_time(s.get("updated_at", ""))
+    updated = format_local_time(s.get("updated_at", ""))
 
-    # Guard: block delete while the background thread is running for this session.
+    status_color, status_text = _status_label(status)
+
+    # Guard: block delete while the background thread is active for this session.
     is_active_processing = (
         tid == st.session_state.get("active_thread_id")
         and "progress_q" in st.session_state
     )
 
-    with st.container():
-        st.markdown(f"**{pkg}** {icon}")
-        st.caption(updated)
-        _, action_col, delete_col = st.columns([6, 3, 1])
+    # HTML card — package name + inline status + relative time
+    st.markdown(
+        f"""<div style="border:1px solid var(--border);border-radius:8px;"""
+        f"""padding:8px 10px;margin-bottom:6px;background:var(--surface);">"""
+        f"""<table style="width:100%;border-collapse:collapse;table-layout:fixed;">"""
+        f"""<colgroup><col style="width:100%"></colgroup>"""
+        f"""<tr><td style="padding:0;vertical-align:middle;overflow:hidden;">"""
+        f"""<span style="font-size:0.875rem;font-weight:500;color:var(--fg);"""
+        f"""white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"""
+        f"""display:inline-block;max-width:calc(100% - 80px);vertical-align:middle;">"""
+        f"""{pkg}</span>"""
+        f"""<span style="color:{status_color};font-size:0.75rem;font-weight:500;"""
+        f"""margin-left:6px;white-space:nowrap;vertical-align:middle;">"""
+        f"""{status_text}</span>"""
+        f"""</td></tr>"""
+        f"""<tr><td style="padding:2px 0 0;vertical-align:middle;">"""
+        f"""<span style="font-size:0.7rem;color:var(--muted);">{updated}</span>"""
+        f"""</td></tr>"""
+        f"""</table></div>""",
+        unsafe_allow_html=True,
+    )
 
-        with action_col:
-            if status in ("paused", "in_progress", "running"):
-                if st.button("Resume", key=f"resume_{tid}"):
-                    _clear_queue_state()
-                    st.session_state.pipeline_steps   = restore_steps_from_scratchpad(tid)
-                    st.session_state.pipeline_done    = False
-                    st.session_state.pipeline_error   = None
-                    st.session_state.active_thread_id = tid
-                    start_graph_thread(tid, st.session_state.user_id, pkg)
-                    st.rerun()
-            elif status == "completed":
-                if st.button("View", key=f"view_{tid}"):
-                    st.session_state.pipeline_steps = []
-                    st.session_state.view_thread_id = tid
-                    st.rerun()
+    # Button row — layout depends on status
+    if status == "completed":
+        col_v, col_d = st.columns([1, 1])
+        with col_v:
+            if st.button("View", key=f"view_{tid}", use_container_width=True):
+                st.session_state.pipeline_steps = []
+                st.session_state.view_thread_id = tid
+                st.rerun()
+        with col_d:
+            if st.button("Delete", key=f"delete_{tid}", use_container_width=True):
+                st.session_state["pending_delete_thread_id"] = tid
+                st.rerun()
 
-        with delete_col:
-            if is_active_processing:
-                st.markdown(
-                    '<div style="text-align:center;color:#aaa;" '
-                    'title="Cannot delete while processing">❌</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                if st.button("❌", key=f"delete_{tid}", help="Delete this session"):
+    elif status in ("in_progress", "running"):
+        if is_active_processing:
+            st.markdown(
+                '<span style="color:var(--muted);font-size:0.75rem;">'
+                "cannot delete while running</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            cols = st.columns([1])
+            with cols[0]:
+                if st.button("Delete", key=f"delete_{tid}", use_container_width=False):
                     st.session_state["pending_delete_thread_id"] = tid
                     st.rerun()
 
-        st.markdown("---")
+    elif status in ("paused", "failed"):
+        col_r, col_d = st.columns([1, 1])
+        with col_r:
+            if st.button("Resume", key=f"resume_{tid}", use_container_width=True):
+                _clear_queue_state()
+                st.session_state.pipeline_steps   = restore_steps_from_scratchpad(tid)
+                st.session_state.pipeline_done    = False
+                st.session_state.pipeline_error   = None
+                st.session_state.active_thread_id = tid
+                start_graph_thread(tid, st.session_state.user_id, pkg)
+                st.rerun()
+        with col_d:
+            if st.button("Delete", key=f"delete_{tid}", use_container_width=True):
+                st.session_state["pending_delete_thread_id"] = tid
+                st.rerun()
+
+    else:
+        # unknown / other status — delete only
+        if st.button("Delete", key=f"delete_{tid}", use_container_width=True):
+            st.session_state["pending_delete_thread_id"] = tid
+            st.rerun()
 
 
 def render_delete_confirmation() -> None:
