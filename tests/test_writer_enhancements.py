@@ -12,11 +12,10 @@ import pytest
 
 from src.components.writer import (
     MAX_REVIEW_ITERATIONS,
-    ThoroughnessReview,
-    CriterionResult,
     extract_chapter_metadata,
     write_review_chapter_node,
 )
+from src.schemas.writing import CriterionResult, ThoroughnessReview
 
 
 # ── Sample markdown fixture ───────────────────────────────────────────────────

@@ -24,6 +24,7 @@ from langgraph.types import interrupt
 
 from src.core.llm import llm
 from src.graph.resumption import skippable
+from src.prompts.cache import ASSESSMENT_SYSTEM_PROMPT
 from src.graph.scratchpad import (
     SCRATCHPAD_FILES,
     copy_scratchpad_from,
@@ -50,27 +51,6 @@ _INGESTION_NODES = [
     "quality_judge",
     "enrichment_agent",
 ]
-
-_ASSESSMENT_SYSTEM_PROMPT = """\
-You are a technical analyst assessing whether a software library has changed \
-significantly since a documentation snapshot was taken.
-Significant means: a major or minor version release, breaking API changes, \
-important new features, or security fixes. Bug-fix-only releases and \
-documentation-only changes are NOT significant.
-Respond only with valid JSON matching this exact schema:
-{
-  "is_significant": bool,
-  "significance_level": "major" | "minor" | "patch" | "none",
-  "summary": str,
-  "new_releases": [{"tag": str, "title": str, "highlights": str}],
-  "breaking_changes": [str],
-  "new_features": [str],
-  "recommendation": "full_refresh" | "partial_refresh" | "no_update"
-}
-recommendation rules:
-  full_refresh    — major release or 3+ breaking changes
-  partial_refresh — minor release or new features without breakage
-  no_update       — only patch/fix commits, no releases"""
 
 # Which nodes to reuse (not re-run) per significance level.
 # Nodes NOT in this list will be re-run fresh.
@@ -434,7 +414,7 @@ async def _run_update_check(
     for attempt, extra in enumerate(["", "\n\nIMPORTANT: Return ONLY valid JSON, no prose."]):
         try:
             response = await llm.ainvoke([
-                ("system", _ASSESSMENT_SYSTEM_PROMPT + extra),
+                ("system", ASSESSMENT_SYSTEM_PROMPT + extra),
                 ("user", user_msg),
             ])
             raw_text = response.content if hasattr(response, "content") else str(response)

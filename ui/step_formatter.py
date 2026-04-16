@@ -16,7 +16,7 @@ from src.graph.scratchpad import read_scratchpad, SCRATCHPAD_FILES
 from ui.constants import NODE_LABELS, NODE_ORDER
 
 
-# ── Per-node formatters ────────────────────────────────────────────────────────
+# Per-node formatters
 #
 # Signature: (node_data: dict, _read_sp: Callable[[str], str | None]) -> dict
 # Return:    {"summary": str, "details": list[str], **optional_extras}
@@ -35,7 +35,7 @@ def _fmt_resumption_inspector(nd: dict, _read_sp: Callable) -> dict:
     skippable = [
         n for n in NODE_ORDER
         if n not in ("resumption_inspector", "aggregator", "intent_parser",
-                     "docs_discovery", "write_review_chapter", "chapter_crossref")
+                    "docs_discovery", "write_review_chapter", "chapter_crossref")
     ]
     pending = [n for n in skippable if n not in completed]
     summary = f"Resuming — {len(completed)} nodes cached, {len(pending)} to run"
@@ -181,9 +181,9 @@ def _fmt_quality_judge(nd: dict, _read_sp: Callable) -> dict:
     rows = ["| Dimension | Score | Top gap |", "|-----------|-------|---------|"]
     for dim, dim_data in quality_report.items():
         score = (dim_data.get("score", 0) if isinstance(dim_data, dict)
-                 else getattr(dim_data, "score", 0))
+                else getattr(dim_data, "score", 0))
         gaps  = (dim_data.get("gaps", []) if isinstance(dim_data, dict)
-                 else getattr(dim_data, "gaps", []))
+                else getattr(dim_data, "gaps", []))
         top_gap   = gaps[0][:60] if gaps else "—"
         dim_label = dim.replace("_", " ").title()
         if score <= 2:
@@ -319,8 +319,7 @@ def _fmt_end_view(nd: dict, _read_sp: Callable) -> dict:
     return {"summary": "Showing existing documentation", "details": []}
 
 
-# ── Dispatch table ─────────────────────────────────────────────────────────────
-
+# Dispatch table
 _FORMATTERS: dict[str, Callable] = {
     "resumption_inspector": _fmt_resumption_inspector,
     "local_cache_inspector": _fmt_local_cache_inspector,

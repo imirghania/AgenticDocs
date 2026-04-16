@@ -18,16 +18,14 @@ from src.agents.chapter_crossref import (
 )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
+# Helpers
 def _write_chapter(tmp_path: Path, name: str, content: str) -> Path:
     p = tmp_path / name
     p.write_text(content, encoding="utf-8")
     return p
 
 
-# ── Tests: build_concept_index ────────────────────────────────────────────────
-
+# Tests: build_concept_index
 class TestBuildConceptIndex:
     def test_maps_terms_to_correct_chapters(self, tmp_path: Path) -> None:
         ch1 = _write_chapter(tmp_path, "01-overview.md",
@@ -63,8 +61,7 @@ class TestBuildConceptIndex:
         assert idx == {"alpha": "Ch1"}
 
 
-# ── Tests: _insert_concept_callbacks ─────────────────────────────────────────
-
+# Tests: _insert_concept_callbacks
 class TestInsertConceptCallbacks:
     _CONCEPT_INDEX = {
         "event loop": "Overview",
@@ -128,8 +125,7 @@ class TestInsertConceptCallbacks:
         assert modified == text
 
 
-# ── Tests: _generate_transitions ─────────────────────────────────────────────
-
+# Tests: _generate_transitions
 class TestGenerateTransitions:
     @pytest.mark.asyncio
     async def test_returns_empty_dict_on_single_chapter(self, tmp_path: Path) -> None:
@@ -206,8 +202,7 @@ class TestGenerateTransitions:
         assert "Ch2" not in result
 
 
-# ── Tests: _insert_transition ─────────────────────────────────────────────────
-
+# Tests: _insert_transition
 class TestInsertTransition:
     def test_inserts_before_key_terms(self) -> None:
         text = "Body content.\n\n### Key terms\n**foo** — bar.\n"

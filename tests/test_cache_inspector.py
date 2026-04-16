@@ -11,8 +11,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
-
+# Fixtures
 @pytest.fixture
 def base_state():
     return {
@@ -47,8 +46,7 @@ def _make_session(
     }
 
 
-# ── Test 1: State C — no cache ────────────────────────────────────────────────
-
+# Test 1: State C — no cache
 @pytest.mark.asyncio
 async def test_state_c_no_cache(base_state):
     """No matching sessions → no interrupt, cache_decision == 'regenerate'."""
@@ -65,8 +63,7 @@ async def test_state_c_no_cache(base_state):
     # Verify no interrupt was raised (would fail if interrupt() were called without mocking)
 
 
-# ── Test 2: State A + "view" ──────────────────────────────────────────────────
-
+# Test 2: State A + "view"
 @pytest.mark.asyncio
 async def test_state_a_view(base_state):
     """Completed session found; user chooses 'view'. No ingestion nodes should run."""
@@ -92,8 +89,7 @@ async def test_state_a_view(base_state):
     assert result["cache_source_thread_id"] == "source-thread-001"
 
 
-# ── Test 3: State A + update + full_refresh ───────────────────────────────────
-
+# Test 3: State A + update + full_refresh
 @pytest.mark.asyncio
 async def test_state_a_update_full_refresh(base_state):
     """User chooses 'update'; update check runs; user chooses 'full_refresh'.
@@ -118,17 +114,17 @@ async def test_state_a_update_full_refresh(base_state):
 
     with (
         patch("src.components.local_cache_inspector.find_matching_sessions",
-              return_value=[completed_session]),
+            return_value=[completed_session]),
         patch("src.components.local_cache_inspector._final_doc_exists", return_value=True),
         patch("src.components.local_cache_inspector._has_ingestion_files", return_value=False),
         patch("src.components.local_cache_inspector.get_session_meta",
-              return_value=completed_session),
+            return_value=completed_session),
         patch("src.components.local_cache_inspector.interrupt",
-              side_effect=interrupt_responses),
+            side_effect=interrupt_responses),
         patch("src.components.local_cache_inspector._run_update_check",
-              new_callable=AsyncMock, return_value=mock_assessment),
+            new_callable=AsyncMock, return_value=mock_assessment),
         patch("src.components.local_cache_inspector._read_previous_summary",
-              return_value="Previous docs summary here."),
+            return_value="Previous docs summary here."),
         patch("src.components.local_cache_inspector.write_scratchpad"),
         patch("src.components.local_cache_inspector.put_session_meta"),
     ):
@@ -143,8 +139,7 @@ async def test_state_a_update_full_refresh(base_state):
     assert result["update_assessment"] == mock_assessment
 
 
-# ── Test 4: State A + update + partial_refresh (minor significance) ───────────
-
+# Test 4: State A + update + partial_refresh (minor significance)
 @pytest.mark.asyncio
 async def test_state_a_update_partial_refresh_minor(base_state):
     """Minor significance: context7/docs/github re-run, quality_judge re-run,
@@ -169,19 +164,19 @@ async def test_state_a_update_partial_refresh_minor(base_state):
 
     with (
         patch("src.components.local_cache_inspector.find_matching_sessions",
-              return_value=[completed_session]),
+            return_value=[completed_session]),
         patch("src.components.local_cache_inspector._final_doc_exists", return_value=True),
         patch("src.components.local_cache_inspector._has_ingestion_files", return_value=False),
         patch("src.components.local_cache_inspector.get_session_meta",
-              return_value=completed_session),
+            return_value=completed_session),
         patch("src.components.local_cache_inspector.interrupt",
-              side_effect=interrupt_responses),
+            side_effect=interrupt_responses),
         patch("src.components.local_cache_inspector._run_update_check",
-              new_callable=AsyncMock, return_value=mock_assessment),
+            new_callable=AsyncMock, return_value=mock_assessment),
         patch("src.components.local_cache_inspector._read_previous_summary",
-              return_value="Old docs."),
+            return_value="Old docs."),
         patch("src.components.local_cache_inspector.copy_scratchpad_from",
-              return_value=True) as mock_copy,
+            return_value=True) as mock_copy,
         patch("src.components.local_cache_inspector.write_scratchpad"),
         patch("src.components.local_cache_inspector.put_session_meta"),
     ):
@@ -204,7 +199,7 @@ async def test_state_a_update_partial_refresh_minor(base_state):
         assert node in copied_nodes
 
 
-# ── Test 5: State A + update + cancel ─────────────────────────────────────────
+# Test 5: State A + update + cancel
 
 @pytest.mark.asyncio
 async def test_state_a_update_cancel(base_state):
@@ -229,15 +224,15 @@ async def test_state_a_update_cancel(base_state):
 
     with (
         patch("src.components.local_cache_inspector.find_matching_sessions",
-              return_value=[completed_session]),
+            return_value=[completed_session]),
         patch("src.components.local_cache_inspector._final_doc_exists", return_value=True),
         patch("src.components.local_cache_inspector._has_ingestion_files", return_value=False),
         patch("src.components.local_cache_inspector.get_session_meta",
-              return_value=completed_session),
+            return_value=completed_session),
         patch("src.components.local_cache_inspector.interrupt",
-              side_effect=interrupt_responses),
+            side_effect=interrupt_responses),
         patch("src.components.local_cache_inspector._run_update_check",
-              new_callable=AsyncMock, return_value=mock_assessment),
+            new_callable=AsyncMock, return_value=mock_assessment),
         patch("src.components.local_cache_inspector.write_scratchpad"),
         patch("src.components.local_cache_inspector.put_session_meta"),
     ):
@@ -249,8 +244,7 @@ async def test_state_a_update_cancel(base_state):
     assert result["cache_source_thread_id"] == "source-thread-004"
 
 
-# ── Test 6: State B — partial cache + use_partial ────────────────────────────
-
+# Test 6: State B — partial cache + use_partial
 @pytest.mark.asyncio
 async def test_state_b_use_partial(base_state):
     """Only partial sessions found; user chooses 'use_partial'.
@@ -264,15 +258,15 @@ async def test_state_b_use_partial(base_state):
 
     with (
         patch("src.components.local_cache_inspector.find_matching_sessions",
-              return_value=[partial_session]),
+            return_value=[partial_session]),
         patch("src.components.local_cache_inspector._final_doc_exists", return_value=False),
         patch("src.components.local_cache_inspector._has_ingestion_files", return_value=True),
         patch("src.components.local_cache_inspector.get_session_meta",
-              return_value=partial_session),
+            return_value=partial_session),
         patch("src.components.local_cache_inspector.interrupt",
-              return_value={"decision": "use_partial", "source_thread_id": "source-thread-005"}),
+            return_value={"decision": "use_partial", "source_thread_id": "source-thread-005"}),
         patch("src.components.local_cache_inspector.copy_scratchpad_from",
-              return_value=True) as mock_copy,
+            return_value=True) as mock_copy,
         patch("src.components.local_cache_inspector.read_scratchpad", return_value=None),
         patch("src.components.local_cache_inspector.write_scratchpad"),
         patch("src.components.local_cache_inspector.put_session_meta"),
@@ -290,8 +284,7 @@ async def test_state_b_use_partial(base_state):
         assert node in copied_calls, f"Expected copy call for {node}"
 
 
-# ── Test 7: GitHub rate-limit → update_check_available == False ───────────────
-
+# Test 7: GitHub rate-limit → update_check_available == False
 @pytest.mark.asyncio
 async def test_github_rate_limit(base_state):
     """GitHub API returns 429 → update_check_available=False, pipeline continues."""
@@ -315,16 +308,16 @@ async def test_github_rate_limit(base_state):
 
     with (
         patch("src.components.local_cache_inspector.find_matching_sessions",
-              return_value=[completed_session]),
+            return_value=[completed_session]),
         patch("src.components.local_cache_inspector._final_doc_exists", return_value=True),
         patch("src.components.local_cache_inspector._has_ingestion_files", return_value=False),
         patch("src.components.local_cache_inspector.get_session_meta",
-              return_value=completed_session),
+            return_value=completed_session),
         patch("src.components.local_cache_inspector.interrupt",
-              side_effect=interrupt_responses),
+            side_effect=interrupt_responses),
         patch("httpx.AsyncClient", return_value=mock_client),
         patch("src.components.local_cache_inspector._read_previous_summary",
-              return_value=""),
+            return_value=""),
         patch("src.components.local_cache_inspector.copy_scratchpad_from", return_value=True),
         patch("src.components.local_cache_inspector.write_scratchpad"),
         patch("src.components.local_cache_inspector.put_session_meta"),

@@ -55,14 +55,14 @@ def start_graph_thread(thread_id: str, user_id: str, package_request: str) -> No
     t = threading.Thread(
         target=_run_graph_thread,
         args=(thread_id, user_id, package_request, progress_q, hitl_q,
-              st.session_state.graph),
+            st.session_state.graph),
         daemon=True,
     )
     st.session_state.graph_thread = t
     t.start()
 
 
-# ── Daemon thread entry point ─────────────────────────────────────────────────
+# Daemon thread entry point 
 
 def _run_graph_thread(
     thread_id: str,
@@ -85,7 +85,7 @@ def _run_graph_thread(
         loop.close()
 
 
-# ── Async graph runner ────────────────────────────────────────────────────────
+# Async graph runner
 
 async def _run_graph_async(
     thread_id: str,
@@ -155,7 +155,7 @@ async def _run_graph_async(
     progress_q.put({"event": "pipeline_done", "output_path": "", "thread_id": thread_id})
 
 
-# ── Event helpers ─────────────────────────────────────────────────────────────
+# Event helpers 
 
 def _handle_debug_event(data: dict, progress_q: queue.Queue) -> None:
     """Extract node_started signal from LangGraph debug task events (best-effort)."""

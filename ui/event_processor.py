@@ -78,7 +78,6 @@ def process_events(events: list[dict]) -> bool:
 
 
 # Step creation helper
-
 def _new_step(node: str, state: str = "running", now: str = "") -> dict:
     ts = now or datetime.now(timezone.utc).isoformat()
     return {
@@ -96,7 +95,6 @@ def _new_step(node: str, state: str = "running", now: str = "") -> dict:
 
 
 # Individual event handlers
-
 def _on_node_started(ev: dict, steps: list, idx: dict) -> None:
     node = ev["node"]
     if node not in idx:

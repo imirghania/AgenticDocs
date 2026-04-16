@@ -25,8 +25,7 @@ from ui.graph_runner import start_graph_thread
 from ui.session import format_local_time, _parse_utc, restore_steps_from_scratchpad
 
 
-# ── 1. Detail renderer ────────────────────────────────────────────────────────
-
+# 1. Detail renderer
 def render_detail(detail: str) -> None:
     """
     Render one detail string choosing the right Streamlit widget:
@@ -54,8 +53,7 @@ def render_detail(detail: str) -> None:
         st.markdown(detail, unsafe_allow_html=True)
 
 
-# ── 2. Pipeline step list ─────────────────────────────────────────────────────
-
+# 2. Pipeline step list
 def render_pipeline_steps() -> None:
     """
     Render each entry in st.session_state["pipeline_steps"] as an st.status block.
@@ -119,8 +117,7 @@ def _render_step_footer(step: dict) -> None:
         pass
 
 
-# ── 3. HITL widget ────────────────────────────────────────────────────────────
-
+# 3. HITL widget
 def render_hitl(payload: dict) -> None:
     """Render the human-in-the-loop package confirmation or clarification widget."""
     hitl_q = st.session_state.hitl_q
@@ -343,8 +340,7 @@ def _render_hitl_update_assessment(data: dict, hitl_q: queue.Queue) -> None:
         st.rerun()
 
 
-# ── 4. Final output ───────────────────────────────────────────────────────────
-
+# 4. Final output
 def render_view_existing_doc(thread_id: str) -> None:
     """
     Display a previously-generated documentation from another session.
@@ -400,7 +396,7 @@ def render_final_output(output_path: str, thread_id: str) -> None:
         out_dir = Path(output_path)
         if out_dir.is_dir():
             parts     = [f.read_text(encoding="utf-8", errors="replace")
-                         for f in sorted(out_dir.glob("*.md"))]
+                        for f in sorted(out_dir.glob("*.md"))]
             final_doc = "\n\n---\n\n".join(parts)
 
     if final_doc:
@@ -416,8 +412,7 @@ def render_final_output(output_path: str, thread_id: str) -> None:
         st.info(f"Chapter files written to `{output_path}/`")
 
 
-# ── 5. Progress fragment ──────────────────────────────────────────────────────
-
+# 5. Progress fragment
 @st.fragment(run_every=1)
 def render_progress() -> None:
     """
@@ -456,8 +451,7 @@ def render_progress() -> None:
         st.rerun()
 
 
-# ── 6. Session views ──────────────────────────────────────────────────────────
-
+# 6. Session views
 def render_new_session_form() -> None:
     """Landing form — prompts the user to enter a package name."""
     st.markdown("## Generate documentation for a package")
@@ -481,7 +475,7 @@ def render_active_session() -> None:
     inferred  = st.session_state.get("inferred_package_name")
 
     header = f"## Generate documentation for **{inferred}**" if inferred \
-             else "## Generate documentation for a package"
+            else "## Generate documentation for a package"
     st.markdown(header)
     st.caption(f"Session: `{thread_id}`")
 
@@ -543,8 +537,7 @@ def render_completed_session(thread_id: str) -> None:
         st.rerun()
 
 
-# ── 7. Sidebar ────────────────────────────────────────────────────────────────
-
+# 7. Sidebar
 _SIDEBAR_CSS = """<style>
 :root {
   --border: rgba(49,51,63,0.15);

@@ -20,8 +20,7 @@ from pathlib import Path
 from typing import Any
 
 
-# ── Filesystem-backed store ────────────────────────────────────────────────────
-
+# Filesystem-backed store
 class _Item:
     """Minimal wrapper so callers can use item.value like InMemoryStore items."""
     __slots__ = ("value",)
@@ -91,8 +90,7 @@ class FilesystemStore:
             shutil.rmtree(base)
 
 
-# ── Store factory ──────────────────────────────────────────────────────────────
-
+# Store factory
 def get_store() -> Any:
     """Return RedisStore if REDIS_URL is set, otherwise FilesystemStore."""
     redis_url = os.getenv("REDIS_URL")
@@ -109,8 +107,7 @@ def get_store() -> Any:
 store: Any = get_store()
 
 
-# ── Session metadata helpers ───────────────────────────────────────────────────
-
+# Session metadata helpers
 def get_session_meta(the_store: Any, thread_id: str) -> dict | None:
     """Retrieve session metadata for thread_id, or None if not found."""
     item = the_store.get(("sessions", thread_id, "meta"), "data")
@@ -186,8 +183,7 @@ def delete_session(the_store: Any, thread_id: str) -> None:
     logging.info("Deleted session %s (%s)", thread_id, package_name)
 
 
-# ── Scratchpad index helpers ───────────────────────────────────────────────────
-
+# Scratchpad index helpers 
 def update_scratchpad_index(
     the_store: Any, thread_id: str, node_name: str, filepath: str
 ) -> None:
@@ -199,8 +195,7 @@ def update_scratchpad_index(
     )
 
 
-# ── Session matching helpers ───────────────────────────────────────────────────
-
+# Session matching helpers
 def find_matching_sessions(
     the_store: Any,
     package_name: str,
@@ -244,8 +239,7 @@ def find_matching_sessions(
     return sorted(result, key=lambda x: x.get("updated_at", ""), reverse=True)
 
 
-# ── User preference helpers ────────────────────────────────────────────────────
-
+# User preference helpers
 def get_user_preferences(the_store: Any, user_id: str) -> dict:
     """Return user preference dict, with defaults if not found."""
     item = the_store.get(("users", user_id, "preferences"), "defaults")

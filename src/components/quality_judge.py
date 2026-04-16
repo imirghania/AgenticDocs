@@ -3,12 +3,13 @@ import json
 import glob as glob_mod
 from pathlib import Path
 
-from pydantic import BaseModel, Field
 from tenacity import retry, retry_if_exception, wait_exponential
 
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
+from src.prompts.quality import EVALUATOR_PROMPT
+from src.schemas.quality import DimensionScore
 from src.state import AgenticDocsState
 
 
@@ -25,12 +26,6 @@ def _is_rate_limit_error(exc: BaseException) -> bool:
     return "429" in str(exc) or "rate limit" in str(exc).lower()
 
 
-class DimensionScore(BaseModel):
-    score: float = Field(ge=1, le=5)
-    reasoning: str
-    gaps: list[str]
-
-
 DIMENSIONS = {
     "beginner_friendliness": "Does it explain prerequisites, provide a quickstart, and avoid unexplained jargon?",
     "api_coverage": "Does it document all major public APIs with descriptions, parameters, and types?",
@@ -39,13 +34,6 @@ DIMENSIONS = {
 }
 
 _evaluator = llm.with_structured_output(DimensionScore)
-
-_EVALUATOR_PROMPT = """Evaluate this documentation on: {eval_dim}.
-Criteria: {criteria}
-Score 1-5. Reason first, then give score and gaps.
-
-DOCUMENTATION:
-{combined}"""
 
 
 def _read_scratchpad(scratchpad_dir: str) -> str:
@@ -67,7 +55,7 @@ async def quality_judge_node(state: AgenticDocsState) -> dict:
     async def _evaluate(dim: str, criteria: str) -> tuple[str, DimensionScore]:
         result = await _evaluator.ainvoke([
             ("user",
-            _EVALUATOR_PROMPT.format(
+            EVALUATOR_PROMPT.format(
                 eval_dim=dim.replace("_", " ").title(),
                 criteria=criteria,
                 combined=sliced,

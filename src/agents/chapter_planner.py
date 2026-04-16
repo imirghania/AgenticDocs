@@ -15,13 +15,8 @@ Key behaviours:
 """
 import json
 
-from src.components.writer import (
-    ChapterPlan,
-    ChapterSpec,  # re-exported for other modules
-    _planner,
-    _PLANNER_SYSTEM_PROMPT,
-    _read_scratchpad_summary,
-)
+from src.components.writer import ChapterPlan, ChapterSpec, _planner, _read_scratchpad_summary
+from src.prompts.writing import PLANNER_SYSTEM_PROMPT
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
 from src.graph.store import put_session_meta, store as global_store
@@ -42,7 +37,7 @@ async def chapter_planner_node(state: AgenticDocsState) -> dict:
     for attempt, extra in enumerate(["", "\n\nIMPORTANT: Return ONLY valid JSON. No prose."]):
         try:
             plan = await _planner.ainvoke([
-                ("system", _PLANNER_SYSTEM_PROMPT + extra),
+                ("system", PLANNER_SYSTEM_PROMPT + extra),
                 ("user", user_msg),
             ])
             break

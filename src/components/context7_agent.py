@@ -4,6 +4,7 @@ from langchain.agents import create_agent
 from src.core.llm import llm
 from src.graph.resumption import skippable
 from src.graph.scratchpad import write_scratchpad
+from src.prompts.context7 import CONTEXT7_SYSTEM_PROMPT
 from src.state import AgenticDocsState
 
 
@@ -21,11 +22,7 @@ async def build_context7_agent(llm):
         llm,
         tools=tools,
         name="context7_agent",
-        system_prompt="""You fetch library documentation from Context7.
-        First resolve the library ID, then query for:
-        1. Core concepts and architecture
-        2. Full API reference
-        3. Common usage patterns and examples"""
+        system_prompt=CONTEXT7_SYSTEM_PROMPT
     )
 
 

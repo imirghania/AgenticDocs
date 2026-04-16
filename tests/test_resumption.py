@@ -9,8 +9,7 @@ import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
-# ─── Fixtures ────────────────────────────────────────────────────────────────
-
+# Fixtures
 @pytest.fixture
 def base_state():
     return {
@@ -25,8 +24,7 @@ def base_state():
     }
 
 
-# ─── skippable() decorator ────────────────────────────────────────────────────
-
+# skippable() decorator
 class TestSkippableSync:
     def test_skips_when_node_in_completed_nodes(self, base_state):
         from src.graph.resumption import skippable
@@ -138,8 +136,7 @@ class TestSkippableAsync:
             await node_fn(base_state)
 
 
-# ─── resumption_inspector_node ───────────────────────────────────────────────
-
+# resumption_inspector_node
 # Patch targets for all tests in this section
 _INSPECTOR_MODULE = "src.components.resumption_inspector"
 
@@ -172,9 +169,9 @@ async def test_inspector_restores_web_discovery(base_state, mock_store):
 
     with (
         patch(f"{_INSPECTOR_MODULE}.list_completed_nodes",
-              return_value={"web_discovery"}),
+            return_value={"web_discovery"}),
         patch(f"{_INSPECTOR_MODULE}.read_scratchpad",
-              return_value=json.dumps(search_results)),
+            return_value=json.dumps(search_results)),
         patch(f"{_INSPECTOR_MODULE}.put_session_meta"),
         patch(f"{_INSPECTOR_MODULE}.global_store", mock_store),
     ):
@@ -201,9 +198,9 @@ async def test_inspector_restores_confirm_package(base_state, mock_store):
 
     with (
         patch(f"{_INSPECTOR_MODULE}.list_completed_nodes",
-              return_value={"confirm_package"}),
+            return_value={"confirm_package"}),
         patch(f"{_INSPECTOR_MODULE}.read_scratchpad",
-              side_effect=fake_read_scratchpad),
+            side_effect=fake_read_scratchpad),
         patch(f"{_INSPECTOR_MODULE}.put_session_meta"),
         patch(f"{_INSPECTOR_MODULE}.global_store", mock_store),
     ):
@@ -234,9 +231,9 @@ async def test_inspector_restores_quality_report(base_state, mock_store):
 
     with (
         patch(f"{_INSPECTOR_MODULE}.list_completed_nodes",
-              return_value={"quality_judge"}),
+            return_value={"quality_judge"}),
         patch(f"{_INSPECTOR_MODULE}.read_scratchpad",
-              side_effect=fake_read_scratchpad),
+            side_effect=fake_read_scratchpad),
         patch(f"{_INSPECTOR_MODULE}.put_session_meta"),
         patch(f"{_INSPECTOR_MODULE}.global_store", mock_store),
     ):
@@ -265,9 +262,9 @@ async def test_inspector_restores_chapter_plan(base_state, mock_store):
 
     with (
         patch(f"{_INSPECTOR_MODULE}.list_completed_nodes",
-              return_value={"chapter_planner"}),
+            return_value={"chapter_planner"}),
         patch(f"{_INSPECTOR_MODULE}.read_scratchpad",
-              side_effect=fake_read_scratchpad),
+            side_effect=fake_read_scratchpad),
         patch(f"{_INSPECTOR_MODULE}.put_session_meta"),
         patch(f"{_INSPECTOR_MODULE}.global_store", mock_store),
     ):
