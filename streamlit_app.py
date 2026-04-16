@@ -31,7 +31,7 @@ def main() -> None:
     st.set_page_config(page_title="AgenticDocs", page_icon="📚", layout="wide")
     st.markdown(PIPELINE_CSS, unsafe_allow_html=True)
 
-    # ── One-time session state initialisation ─────────────────────────────────
+    # One-time session state initialisation
     if "user_id" not in st.session_state:
         st.session_state.user_id = get_or_create_user_id()
     if "graph" not in st.session_state:
@@ -48,7 +48,7 @@ def main() -> None:
     render_sidebar()
     render_delete_confirmation()
 
-    # ── Route to the appropriate main-area view ───────────────────────────────
+    # Route to the appropriate main-area view
     if "view_thread_id" in st.session_state:
         render_completed_session(st.session_state.view_thread_id)
     elif "active_thread_id" not in st.session_state:
